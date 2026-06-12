@@ -4,6 +4,7 @@ import { env } from '../config/env';
 
 export class DeepgramSttService extends EventEmitter {
   private socket?: WebSocket;
+  private keepAlive?: NodeJS.Timeout;
 
   start() {
     if (!env.DEEPGRAM_API_KEY) {
@@ -14,17 +15,45 @@ export class DeepgramSttService extends EventEmitter {
     const url =
       'wss://api.deepgram.com/v1/listen?model=' +
       encodeURIComponent(env.DEEPGRAM_STT_MODEL) +
-      '&encoding=linear16&sample_rate=16000&channels=1&interim_results=true';
+      '&encoding=linear16&sample_rate=16000&channels=1' +
+      '&interim_results=true&punctuate=true&smart_format=true' +
+      // Server-side endpointing: Deepgram detects end-of-speech automatically
+      // (silence) and flags speech_final / emits UtteranceEnd, enabling a
+      // hands-free conversation without a manual "send".
+      '&endpointing=300&utterance_end_ms=1000&vad_events=true';
 
     this.socket = new WebSocket(url, {
       headers: { Authorization: 'Token ' + env.DEEPGRAM_API_KEY },
     });
 
+    // Deepgram closes the stream after ~10s of silence. A periodic KeepAlive
+    // keeps the connection alive between utterances so the first words of the
+    // next turn are not dropped.
+    this.socket.on('open', () => {
+      this.keepAlive = setInterval(() => {
+        if (this.socket?.readyState === WebSocket.OPEN) {
+          this.socket.send(JSON.stringify({ type: 'KeepAlive' }));
+        }
+      }, 8000);
+    });
+
     this.socket.on('message', (data) => {
       const event = JSON.parse(data.toString());
+
+      // Deepgram detected the end of an utterance (silence) -> let the session
+      // know it can finalize and respond, hands-free.
+      if (event.type === 'UtteranceEnd') {
+        this.emit('utteranceEnd');
+        return;
+      }
+      if (event.type && event.type !== 'Results') return;
+
       const transcript = event.channel?.alternatives?.[0]?.transcript;
-      if (!transcript) return;
-      this.emit(event.is_final ? 'final' : 'partial', transcript);
+      if (transcript) {
+        this.emit(event.is_final ? 'final' : 'partial', transcript);
+      }
+      // speech_final marks the last final of a spoken utterance (endpointing).
+      if (event.speech_final) this.emit('utteranceEnd');
     });
     this.socket.on('error', (error) => this.emit('error', error));
   }
@@ -33,7 +62,22 @@ export class DeepgramSttService extends EventEmitter {
     if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(chunk);
   }
 
+  /**
+   * Asks Deepgram to flush any buffered audio into a final result without
+   * closing the connection. Used to finalize the current utterance when the
+   * user releases the mic.
+   */
+  finalize() {
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({ type: 'Finalize' }));
+    }
+  }
+
   stop() {
+    if (this.keepAlive) {
+      clearInterval(this.keepAlive);
+      this.keepAlive = undefined;
+    }
     this.socket?.close();
   }
 }
