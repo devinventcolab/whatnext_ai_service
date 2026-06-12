@@ -1,0 +1,9 @@
+{
+  "name": "whatnext_frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Standalone frontend for WhatNext Voice AI backend",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

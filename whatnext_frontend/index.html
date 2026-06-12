@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WhatNext Voice Client</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./socket.io.min.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>WhatNext Voice Assistant Client</h1>
+      <p>Standalone frontend for voice realtime + task CRUD.</p>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2>Backend Connection</h2>
+        <label for="apiBase">API Base URL</label>
+        <input id="apiBase" value="http://localhost:8980/api/v1" />
+        <label for="socketBase">Socket Server URL</label>
+        <input id="socketBase" value="http://localhost:8980" />
+        <div class="row">
+          <button id="healthBtn">Check Health</button>
+          <button id="resetUrlsBtn">Use Backend Port 8980</button>
+          <button id="smokeTestBtn">Run Frontend Smoke Test</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Auth</h2>
+        <div class="grid">
+          <div>
+            <label for="email">Email</label>
+            <input id="email" type="email" placeholder="user@example.com" />
+          </div>
+          <div>
+            <label for="password">Password</label>
+            <input id="password" type="password" placeholder="Minimum 8 chars" />
+          </div>
+          <div>
+            <label for="displayName">Display Name</label>
+            <input id="displayName" placeholder="User A" />
+          </div>
+          <div>
+            <label for="deviceId">Device ID</label>
+            <input id="deviceId" value="web-a" />
+          </div>
+        </div>
+        <div class="row">
+          <button id="registerBtn">Register</button>
+          <button id="loginBtn">Login</button>
+          <button id="refreshBtn">Refresh Token</button>
+          <button id="logoutBtn">Logout</button>
+          <button id="clearBtn" class="danger">Clear Tokens</button>
+        </div>
+        <p class="status" id="authState">Access token: missing</p>
+      </section>
+
+      <section class="card">
+        <h2>Voice Realtime (User A -> Assistant)</h2>
+        <div class="row">
+          <button id="socketConnectBtn">Connect Socket</button>
+          <button id="socketPingBtn">voice:ping</button>
+          <button id="socketDisconnectBtn">Disconnect Socket</button>
+          <button id="voiceStartBtn">voice:start</button>
+          <button id="micStartBtn">Start Mic Stream</button>
+          <button id="commitBtn">voice:commit</button>
+          <button id="voiceStopBtn">voice:stop</button>
+        </div>
+        <p class="status" id="socketState">Socket: disconnected</p>
+        <label for="assistantTranscript">Transcript / Assistant</label>
+        <textarea id="assistantTranscript" rows="10" readonly></textarea>
+      </section>
+
+      <section class="card">
+        <h2>Task CRUD</h2>
+        <div class="grid">
+          <div>
+            <label for="taskTitle">Title</label>
+            <input id="taskTitle" placeholder="Task title" />
+          </div>
+          <div>
+            <label for="taskPriority">Priority</label>
+            <select id="taskPriority">
+              <option value="low">low</option>
+              <option value="medium" selected>medium</option>
+              <option value="high">high</option>
+              <option value="urgent">urgent</option>
+            </select>
+          </div>
+          <div>
+            <label for="taskStatus">Status</label>
+            <select id="taskStatus">
+              <option value="todo" selected>todo</option>
+              <option value="in_progress">in_progress</option>
+              <option value="done">done</option>
+              <option value="cancelled">cancelled</option>
+            </select>
+          </div>
+          <div>
+            <label for="taskDueDate">Due Date</label>
+            <input id="taskDueDate" type="datetime-local" />
+          </div>
+        </div>
+        <label for="taskDescription">Description</label>
+        <textarea id="taskDescription" rows="3"></textarea>
+        <div class="row">
+          <button id="createTaskBtn">Create</button>
+          <button id="loadTasksBtn">Fetch</button>
+        </div>
+
+        <div id="tasks"></div>
+      </section>
+
+      <section class="card">
+        <h2>Debug</h2>
+        <pre id="debug"></pre>
+      </section>
+    </main>
+
+    <script src="./app.js?v=20260611c"></script>
+  </body>
+</html>
