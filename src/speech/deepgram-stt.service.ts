@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import WebSocket from 'ws';
 import { env } from '../config/env';
+import { vlog } from '../shared/debug';
 
 export class DeepgramSttService extends EventEmitter {
   private socket?: WebSocket;
@@ -30,12 +31,14 @@ export class DeepgramSttService extends EventEmitter {
     // keeps the connection alive between utterances so the first words of the
     // next turn are not dropped.
     this.socket.on('open', () => {
+      vlog('stt', 'deepgram connected', env.DEEPGRAM_STT_MODEL);
       this.keepAlive = setInterval(() => {
         if (this.socket?.readyState === WebSocket.OPEN) {
           this.socket.send(JSON.stringify({ type: 'KeepAlive' }));
         }
       }, 8000);
     });
+    this.socket.on('close', () => vlog('stt', 'deepgram closed'));
 
     this.socket.on('message', (data) => {
       const event = JSON.parse(data.toString());

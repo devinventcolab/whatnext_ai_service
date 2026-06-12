@@ -1,6 +1,7 @@
 import { Socket } from 'socket.io';
 import { OpenAiAssistantService } from '../ai/openai-assistant.service';
 import { AuthContext } from '../auth/auth.types';
+import { vlog } from '../shared/debug';
 import { DeepgramSttService } from '../speech/deepgram-stt.service';
 import { DeepgramTtsService } from '../speech/deepgram-tts.service';
 
@@ -49,7 +50,10 @@ export class VoiceSession {
 
     this.stt.on('final', (text) => {
       const segment = String(text).trim();
-      if (segment) this.finals.push(segment);
+      if (segment) {
+        this.finals.push(segment);
+        vlog('session', 'stt final segment', segment);
+      }
       this.latestPartial = '';
       // Stream the growing utterance so the UI shows live progress, but DO NOT
       // run the assistant yet — that only happens once the utterance is
@@ -61,8 +65,12 @@ export class VoiceSession {
     // Hands-free: Deepgram detected end-of-speech (silence) -> finalize the
     // utterance automatically and respond, then keep listening for the next one.
     this.stt.on('utteranceEnd', () => {
-      if (this.processing) return;
+      if (this.processing) {
+        vlog('session', 'utteranceEnd ignored (busy)');
+        return;
+      }
       if (!this.finals.length && !this.latestPartial.trim()) return;
+      vlog('session', 'utteranceEnd -> auto finalize (silence)');
       this.finalizing = true;
       this.flushDelay = AUTO_FINALIZE_DEBOUNCE_MS;
       this.scheduleFlush(AUTO_FINALIZE_DEBOUNCE_MS);
@@ -72,6 +80,7 @@ export class VoiceSession {
       this.socket.emit('voice:error', { message: (error as Error).message }),
     );
 
+    vlog('session', 'started -> voice:ready', { user: this.auth.user.id });
     this.socket.emit('voice:ready', {
       userId: this.auth.user.id,
       encoding: 'linear16',
@@ -84,6 +93,7 @@ export class VoiceSession {
   }
 
   commit() {
+    vlog('session', 'commit (manual finalize)');
     this.socket.emit('voice:committed', {
       timestamp: new Date().toISOString(),
     });
@@ -131,6 +141,7 @@ export class VoiceSession {
     this.latestPartial = '';
     if (!text) return;
 
+    vlog('session', 'flush utterance -> transcript:final', text);
     void this.handleTranscript(text);
   }
 
@@ -138,16 +149,28 @@ export class VoiceSession {
     this.processing = true;
     try {
       this.socket.emit('transcript:final', { text });
+
+      vlog('session', 'assistant thinking…');
       const response = await this.assistant.handleTranscript({
         token: this.auth.token,
         transcript: text,
         userId: this.auth.user.id,
       });
-
+      vlog('session', 'assistant:text', {
+        text: response.text,
+        tools: response.toolResults.map((t) => t.toolName),
+      });
       this.socket.emit('assistant:text', response);
+
       const audio = await this.tts.synthesize(response.text);
-      if (audio.byteLength) this.socket.emit('assistant:audio', audio);
+      if (audio.byteLength) {
+        vlog('session', 'assistant:audio', `${audio.byteLength} bytes`);
+        this.socket.emit('assistant:audio', audio);
+      } else {
+        vlog('session', 'assistant:audio skipped (no audio)');
+      }
     } catch (error) {
+      vlog('session', 'error', (error as Error).message);
       this.socket.emit('voice:error', { message: (error as Error).message });
     } finally {
       this.processing = false;

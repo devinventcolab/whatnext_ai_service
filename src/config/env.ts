@@ -8,6 +8,11 @@ const envSchema = z.object({
     .enum(['development', 'test', 'production'])
     .default('development'),
   PORT: z.coerce.number().default(8980),
+  // Verbose voice-pipeline logging. Leave unset to default to on outside prod.
+  DEBUG_VOICE: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === 'true')),
   APP_ORIGIN: z.string().default('*'),
   DOTNET_API_BASE_URL: z.string().url().default('http://localhost:5000/api'),
   DOTNET_AUTH_ME_PATH: z.string().default('/auth/me'),
