@@ -18,6 +18,11 @@ export class DeepgramSttService extends EventEmitter {
     const url =
       'wss://api.deepgram.com/v1/listen?model=' +
       encodeURIComponent(env.DEEPGRAM_STT_MODEL) +
+      // Recognition language. "multi" enables nova-3 multilingual recognition
+      // (e.g. English + Serbian) so the user's language is detected automatically;
+      // set DEEPGRAM_STT_LANGUAGE to a fixed code to lock it.
+      '&language=' +
+      encodeURIComponent(env.DEEPGRAM_STT_LANGUAGE) +
       '&encoding=linear16&sample_rate=16000&channels=1' +
       '&interim_results=true&punctuate=true&smart_format=true' +
       // Server-side endpointing: Deepgram detects end-of-speech automatically
@@ -33,7 +38,11 @@ export class DeepgramSttService extends EventEmitter {
     // keeps the connection alive between utterances so the first words of the
     // next turn are not dropped.
     this.socket.on('open', () => {
-      vlog('stt', 'deepgram connected', env.DEEPGRAM_STT_MODEL);
+      vlog(
+        'stt',
+        'deepgram connected',
+        `${env.DEEPGRAM_STT_MODEL} (lang=${env.DEEPGRAM_STT_LANGUAGE})`,
+      );
       this.keepAlive = setInterval(() => {
         if (this.socket?.readyState === WebSocket.OPEN) {
           this.socket.send(JSON.stringify({ type: 'KeepAlive' }));

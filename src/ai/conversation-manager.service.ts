@@ -1,5 +1,8 @@
 import OpenAI from 'openai';
 import { env } from '../config/env';
+import { languageManager } from '../i18n/language-manager';
+import { SupportedLanguage } from '../i18n/types';
+import { ApiError } from '../shared/errors/api-error';
 import { vlog } from '../shared/debug';
 import { ToolExecutorService } from './tool-executor.service';
 import { Intent, INTENTS, WORKERS } from './workers';
@@ -12,24 +15,26 @@ interface Nlu {
   intent: Intent | null;
   command: Command;
   fields: Fields;
+  language: SupportedLanguage | null;
   reply?: string;
 }
 
 export interface AssistantResult {
   text: string;
   toolResults: Array<{ toolName: string; result: unknown }>;
+  /** Language the reply is written in, so the caller can pick the TTS voice. */
+  language: SupportedLanguage;
 }
 
 // Reset the conversation if the user goes quiet for this long.
 const SESSION_TIMEOUT_MS = 5 * 60 * 1000;
 
 /**
- * Worker-based, deterministic conversation manager.
+ * Worker-based, deterministic, language-aware conversation manager.
  *
- * The LLM is used only for NLU (detecting intent, classifying the user's
- * command, and extracting field values). All flow control — required-field
- * tracking, confirmation, intent switching, modification, and cancellation —
- * is handled here so creation can never happen without explicit confirmation.
+ * The LLM is used only for NLU (detecting intent + language, classifying the
+ * command, and extracting field values). All flow control and all user-facing
+ * text is handled here, with strings resolved from i18n in the active language.
  */
 export class ConversationManagerService {
   private readonly client = env.OPENAI_API_KEY
@@ -41,7 +46,14 @@ export class ConversationManagerService {
   private intent: Intent | null = null;
   private phase: Phase = 'idle';
   private fields: Fields = {};
+  /** Active session language; persists across resets within the session. */
+  private language: SupportedLanguage = languageManager.defaultLanguage;
   private lastActivityAt = Date.now();
+
+  /** Current session language (for the caller, e.g. TTS voice selection). */
+  get activeLanguage(): SupportedLanguage {
+    return this.language;
+  }
 
   async handle(input: {
     token: string;
@@ -49,14 +61,10 @@ export class ConversationManagerService {
     userId: string;
   }): Promise<AssistantResult> {
     const text = input.transcript.trim();
-    if (!text) return this.reply('Sorry, I didn’t catch that. Could you repeat?');
-    if (!this.client) {
-      return this.reply(
-        'OpenAI API key is not configured, so I can’t process requests yet.',
-      );
-    }
+    if (!text) return this.reply('msg.cantHear');
+    if (!this.client) return this.reply('msg.noApiKey');
 
-    // Timeout: abandon a stale half-finished record.
+    // Timeout: abandon a stale half-finished record (language is preserved).
     if (Date.now() - this.lastActivityAt > SESSION_TIMEOUT_MS) {
       vlog('worker', 'session timed out -> reset');
       this.reset();
@@ -68,21 +76,24 @@ export class ConversationManagerService {
       nlu = await this.classify(text);
     } catch (error) {
       vlog('worker', 'nlu error', (error as Error).message);
-      return this.reply(
-        'I had trouble understanding that. Could you say it again?',
-      );
+      return this.reply('msg.nluError');
     }
-    vlog('worker', 'nlu', nlu);
+
+    // Language detection / switching. NLU first, heuristic as a fallback.
+    const detected = nlu.language ?? languageManager.detect(text);
+    if (detected && detected !== this.language) {
+      vlog('worker', 'language switch', { from: this.language, to: detected });
+      this.language = detected;
+    }
+    vlog('worker', 'nlu', { ...nlu, language: this.language });
 
     // 1) Cancel abandons whatever is in progress.
     if (nlu.command === 'cancel') {
       const had = this.intent;
       this.reset();
-      return this.reply(
-        had
-          ? `Okay, I’ve cancelled that ${WORKERS[had].noun}. What would you like to do next?`
-          : 'Okay. What would you like to do?',
-      );
+      return had
+        ? this.reply('msg.cancelled', { noun: this.noun(had) })
+        : this.reply('msg.cancelledNone');
     }
 
     // 2) Intent switch (or first intent). Switching starts a fresh worker.
@@ -94,10 +105,9 @@ export class ConversationManagerService {
 
     // 3) Nothing active and nothing detected -> guide the user.
     if (!this.intent) {
-      return this.reply(
-        nlu.reply ||
-          'I can help you create a task, note, event, or worklog. Which would you like to do?',
-      );
+      return nlu.reply
+        ? this.rawReply(nlu.reply)
+        : this.reply('msg.chooseIntent');
     }
 
     // 4) Merge any field values mentioned this turn, then auto-fill defaults.
@@ -117,19 +127,24 @@ export class ConversationManagerService {
     const missing = this.missingRequired();
     if (missing.length) {
       this.phase = 'collecting';
-      const field = WORKERS[this.intent].fields.find(
-        (f) => f.name === missing[0],
-      )!;
-      const ack = provided ? 'Got it. ' : '';
-      return this.reply(`${ack}${field.question}`);
+      const ack = provided ? languageManager.t('msg.ack', this.language) : '';
+      const question = languageManager.t(
+        `field.${this.intent}.${missing[0]}.question`,
+        this.language,
+      );
+      return this.rawReply(`${ack}${question}`);
     }
 
     // 7) Everything collected -> summarize and ask for confirmation.
     this.phase = 'confirming';
-    const verb = nlu.command === 'modify' ? 'Updated.' : 'Great.';
-    return this.reply(
-      `${verb}\n${this.summary()}\n\nShould I create this ${WORKERS[this.intent].noun}?`,
+    const lead = languageManager.t(
+      nlu.command === 'modify' ? 'msg.updated' : 'msg.great',
+      this.language,
     );
+    const confirm = languageManager.t('msg.confirmCreate', this.language, {
+      noun: this.noun(this.intent),
+    });
+    return this.rawReply(`${lead}\n${this.summary()}\n\n${confirm}`);
   }
 
   // ---------------------------------------------------------------------------
@@ -149,21 +164,23 @@ export class ConversationManagerService {
       return `- ${i}: ${fs}`;
     }).join('\n');
 
+    const langs = languageManager.supportedLanguages.join('|');
     const system = [
-      'You are the NLU router for a productivity voice assistant.',
+      'You are the NLU router for a multilingual productivity voice assistant.',
       'Supported intents and their fields ("*" = required):',
       fieldDocs,
       `Current datetime (ISO): ${now}. Resolve relative dates/times like "tomorrow" or "3pm" into ISO 8601 strings.`,
       'Respond with ONLY a JSON object of this exact shape:',
-      '{"intent":"task|note|event|worklog|null","command":"provide|confirm|cancel|modify|none","fields":{},"reply":""}',
+      `{"intent":"task|note|event|worklog|null","command":"provide|confirm|cancel|modify|none","language":"${langs}","fields":{},"reply":""}`,
       'Rules:',
-      '- "intent": the intent the user is expressing now. If they are only answering a follow-up or changing a field, repeat the CURRENT intent. Set a NEW intent only if they clearly change their mind (e.g. "actually make a note instead").',
-      '- "command": "confirm" when the user agrees to create (yes/yep/go ahead/confirm/create it); "cancel" when they abandon (cancel/never mind/stop/forget it); "modify" when they change an already-provided field; "provide" when they give new info; otherwise "none".',
-      '- "fields": include ONLY fields explicitly mentioned this turn, using the exact field names above. Use allowed enum values verbatim. "duration" is minutes (number); "estimated_time" is hours (number); dates/times must be ISO 8601 strings. Do not invent values; omit unknowns.',
-      '- "reply": only set this with a short clarification when the user is off-topic or ambiguous; otherwise use an empty string.',
+      '- "intent": the intent the user is expressing now. If they are only answering a follow-up or changing a field, repeat the CURRENT intent. Set a NEW intent only if they clearly change their mind.',
+      `- "language": the ISO code of the language the user wrote/spoke in (${langs}). Detect it from THIS message; if it is too short to tell, repeat the current session language.`,
+      '- "command": "confirm" when the user agrees to create (e.g. yes / da / go ahead); "cancel" when they abandon (e.g. cancel / otkaži / never mind); "modify" when they change an already-provided field; "provide" when they give new info; otherwise "none".',
+      '- "fields": include ONLY fields explicitly mentioned this turn, using the exact field names above. Use allowed enum values verbatim. "duration" is minutes (number); "estimated_time" is hours (number); dates/times must be ISO 8601 strings. Field VALUES should stay in the user\'s language. Do not invent values; omit unknowns.',
+      '- "reply": only set this (in the user\'s language) with a short clarification when the user is off-topic or ambiguous; otherwise use an empty string.',
     ].join('\n');
 
-    const state = `Current intent: ${this.intent ?? 'none'}. Phase: ${this.phase}. Collected so far: ${JSON.stringify(this.fields)}.`;
+    const state = `Current intent: ${this.intent ?? 'none'}. Phase: ${this.phase}. Session language: ${this.language}. Collected so far: ${JSON.stringify(this.fields)}.`;
 
     const res = await this.client!.chat.completions.create({
       model: env.OPENAI_MODEL,
@@ -196,14 +213,15 @@ export class ConversationManagerService {
         ? (o.command as Command)
         : 'none';
       const fields =
-        o.fields && typeof o.fields === 'object'
-          ? (o.fields as Fields)
-          : {};
+        o.fields && typeof o.fields === 'object' ? (o.fields as Fields) : {};
+      const language = languageManager.isSupported(o.language as string)
+        ? (o.language as SupportedLanguage)
+        : null;
       const reply =
         typeof o.reply === 'string' && o.reply.trim() ? o.reply : undefined;
-      return { intent, command, fields, reply };
+      return { intent, command, fields, language, reply };
     } catch {
-      return { intent: this.intent, command: 'none', fields: {} };
+      return { intent: this.intent, command: 'none', fields: {}, language: null };
     }
   }
 
@@ -231,8 +249,9 @@ export class ConversationManagerService {
         applied = true;
       } else if (f.enum) {
         const s = String(v).toLowerCase();
-        if (f.enum.includes(s)) {
-          this.fields[f.name] = s;
+        const match = f.enum.find((e) => e.toLowerCase() === s);
+        if (match) {
+          this.fields[f.name] = match;
           applied = true;
         }
       } else {
@@ -268,17 +287,28 @@ export class ConversationManagerService {
   }
 
   private summary(): string {
-    const spec = WORKERS[this.intent!];
-    const lines = spec.fields
+    const intent = this.intent!;
+    const header = languageManager.t('msg.summaryHeader', this.language, {
+      noun: this.noun(intent),
+    });
+    const lines = WORKERS[intent].fields
       .filter(
         (f) => this.fields[f.name] !== undefined && this.fields[f.name] !== '',
       )
-      .map((f) => `- ${f.label}: ${formatValue(this.fields[f.name])}`);
-    return `Here’s the ${spec.noun} I have:\n${lines.join('\n')}`;
+      .map((f) => {
+        const label = languageManager.t(
+          `field.${intent}.${f.name}.label`,
+          this.language,
+        );
+        return `- ${label}: ${formatValue(this.fields[f.name])}`;
+      });
+    return `${header}\n${lines.join('\n')}`;
   }
 
   private async create(token: string): Promise<AssistantResult> {
-    const spec = WORKERS[this.intent!];
+    const intent = this.intent!;
+    const spec = WORKERS[intent];
+    const noun = this.noun(intent);
     try {
       const result = await this.toolExecutor.execute(token, spec.createTool, {
         ...this.fields,
@@ -287,18 +317,30 @@ export class ConversationManagerService {
       vlog('worker', `${spec.createTool} created`);
       this.reset();
       return {
-        text: `Done. I’ve created the ${spec.noun}.`,
+        text: languageManager.t('msg.created', this.language, { noun }),
         toolResults: [{ toolName: spec.createTool, result }],
+        language: this.language,
       };
     } catch (error) {
       const message = (error as Error).message;
-      vlog('worker', 'create failed', message);
+      vlog('worker', 'create failed', {
+        message,
+        details: error instanceof ApiError ? error.details : undefined,
+      });
       // Stay in confirming phase so the user can fix and retry.
       return {
-        text: `I couldn’t create the ${spec.noun}: ${message}. Want to try again or change something?`,
+        text: languageManager.t('msg.createFailed', this.language, {
+          noun,
+          error: message,
+        }),
         toolResults: [],
+        language: this.language,
       };
     }
+  }
+
+  private noun(intent: Intent): string {
+    return languageManager.noun(intent, this.language);
   }
 
   private switchTo(intent: Intent) {
@@ -313,8 +355,17 @@ export class ConversationManagerService {
     this.phase = 'idle';
   }
 
-  private reply(text: string): AssistantResult {
-    return { text, toolResults: [] };
+  /** Builds a result from a translation key. */
+  private reply(
+    key: string,
+    vars?: Record<string, string | number>,
+  ): AssistantResult {
+    return this.rawReply(languageManager.t(key, this.language, vars));
+  }
+
+  /** Builds a result from already-localized text. */
+  private rawReply(text: string): AssistantResult {
+    return { text, toolResults: [], language: this.language };
   }
 }
 

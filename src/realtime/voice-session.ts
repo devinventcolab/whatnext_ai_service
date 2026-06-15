@@ -3,7 +3,7 @@ import { ConversationManagerService } from '../ai/conversation-manager.service';
 import { AuthContext } from '../auth/auth.types';
 import { vlog } from '../shared/debug';
 import { DeepgramSttService } from '../speech/deepgram-stt.service';
-import { DeepgramTtsService } from '../speech/deepgram-tts.service';
+import { TtsService } from '../speech/tts.service';
 
 // How long to wait for trailing Deepgram finals after a manual commit before we
 // treat the utterance as complete. The timer resets every time a new final
@@ -16,7 +16,7 @@ const AUTO_FINALIZE_DEBOUNCE_MS = 250;
 
 export class VoiceSession {
   private readonly stt = new DeepgramSttService();
-  private readonly tts = new DeepgramTtsService();
+  private readonly tts = new TtsService();
   private readonly assistant = new ConversationManagerService();
 
   /** Finalized transcript segments accumulated during the current utterance. */
@@ -185,11 +185,12 @@ export class VoiceSession {
       });
       vlog('session', 'assistant:text', {
         text: response.text,
+        language: response.language,
         tools: response.toolResults.map((t) => t.toolName),
       });
       this.socket.emit('assistant:text', response);
 
-      const audio = await this.tts.synthesize(response.text);
+      const audio = await this.tts.synthesize(response.text, response.language);
       if (audio.byteLength) {
         vlog('session', 'assistant:audio', `${audio.byteLength} bytes`);
         this.socket.emit('assistant:audio', audio);

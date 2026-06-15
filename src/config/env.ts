@@ -22,12 +22,18 @@ const envSchema = z.object({
   DOTNET_TASKS_PATH: z.string().default('/user/add-confirm-task-details'),
   DOTNET_EVENTS_PATH: z.string().default('/user/create-event-calendar'),
   DOTNET_NOTES_PATH: z.string().default('/user/CreateNote'),
-  DOTNET_WORKLOGS_PATH: z.string().default('/user/CreateWorklog'),
+  DOTNET_WORKLOGS_PATH: z.string().default('/user/create-worklog'),
   JWT_SHARED_SECRET: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default('gpt-4o-mini'),
+  // OpenAI TTS is used for non-English speech (multilingual). Aura is English-only.
+  OPENAI_TTS_MODEL: z.string().default('tts-1'),
+  OPENAI_TTS_VOICE: z.string().default('alloy'),
   DEEPGRAM_API_KEY: z.string().optional(),
   DEEPGRAM_STT_MODEL: z.string().default('nova-3'),
+  // STT recognition language. "multi" enables Deepgram nova-3 multilingual
+  // recognition; set to a specific code (e.g. "en") to lock the language.
+  DEEPGRAM_STT_LANGUAGE: z.string().default('multi'),
   DEEPGRAM_TTS_MODEL: z.string().default('aura-2-thalia-en'),
 });
 

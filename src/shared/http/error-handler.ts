@@ -1,12 +1,15 @@
 import { ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
+import { languageManager } from '../../i18n/language-manager';
 import { ApiError } from '../errors/api-error';
 
-export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
+export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
+  const lang = req.language ?? languageManager.defaultLanguage;
+
   if (error instanceof ZodError) {
     res.status(400).json({
       statusCode: 400,
-      message: 'Validation failed',
+      message: languageManager.t('error.validation', lang),
       details: error.flatten(),
     });
     return;
@@ -21,5 +24,8 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
     return;
   }
 
-  res.status(500).json({ statusCode: 500, message: 'Internal server error' });
+  res.status(500).json({
+    statusCode: 500,
+    message: languageManager.t('error.internal', lang),
+  });
 };

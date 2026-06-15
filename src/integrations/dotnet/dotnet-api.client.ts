@@ -1,10 +1,12 @@
 import { env } from '../../config/env';
 import { ApiError } from '../../shared/errors/api-error';
 import { AuthUser } from '../../auth/auth.types';
+import { vlog } from '../../shared/debug';
 
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 const dotnetNameIdentifierClaim =
   'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier';
+type Payload = Record<string, unknown>;
 
 export class DotnetApiClient {
   async getCurrentUser(token: string): Promise<AuthUser> {
@@ -34,7 +36,7 @@ export class DotnetApiClient {
   }
 
   createTask(token: string, payload: unknown) {
-    return this.request(token, 'POST', env.DOTNET_TASKS_PATH, payload);
+    return this.request(token, 'POST', env.DOTNET_TASKS_PATH, toTaskPayload(payload));
   }
 
   updateTask(token: string, id: string, payload: unknown) {
@@ -51,7 +53,12 @@ export class DotnetApiClient {
   }
 
   createEvent(token: string, payload: unknown) {
-    return this.request(token, 'POST', env.DOTNET_EVENTS_PATH, payload);
+    return this.request(
+      token,
+      'POST',
+      env.DOTNET_EVENTS_PATH,
+      toEventPayload(payload),
+    );
   }
 
   updateEvent(token: string, id: string, payload: unknown) {
@@ -68,7 +75,7 @@ export class DotnetApiClient {
   }
 
   createNote(token: string, payload: unknown) {
-    return this.request(token, 'POST', env.DOTNET_NOTES_PATH, payload);
+    return this.request(token, 'POST', env.DOTNET_NOTES_PATH, toNotePayload(payload));
   }
 
   updateNote(token: string, id: string, payload: unknown) {
@@ -85,7 +92,12 @@ export class DotnetApiClient {
   }
 
   createWorklog(token: string, payload: unknown) {
-    return this.request(token, 'POST', env.DOTNET_WORKLOGS_PATH, payload);
+    return this.request(
+      token,
+      'POST',
+      env.DOTNET_WORKLOGS_PATH,
+      toWorklogFormData(payload),
+    );
   }
 
   updateWorklog(token: string, id: string, payload: unknown) {
@@ -108,6 +120,9 @@ export class DotnetApiClient {
     body?: unknown,
   ): Promise<T> {
     let response: Response;
+    const url = new URL(path, env.DOTNET_API_BASE_URL).toString();
+    const isFormData =
+      typeof FormData !== 'undefined' && body instanceof FormData;
 
     // Abort the request if the .NET backend does not respond in time, so a
     // slow/unreachable host can never hang the socket handshake or a tool call.
@@ -118,24 +133,32 @@ export class DotnetApiClient {
     );
 
     try {
-      response = await fetch(
-        new URL(path, env.DOTNET_API_BASE_URL).toString(),
-        {
-          method,
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-          body: body === undefined ? undefined : JSON.stringify(body),
-          signal: controller.signal,
+      vlog('dotnet', 'request', {
+        method,
+        path,
+        formData: isFormData,
+        body: previewBody(body),
+      });
+      response = await fetch(url, {
+        method,
+        headers: {
+          Authorization: 'Bearer ' + token,
+          ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
         },
-      );
+        body:
+          body === undefined
+            ? undefined
+            : isFormData
+              ? (body as FormData)
+              : JSON.stringify(body),
+        signal: controller.signal,
+      });
     } catch (error) {
       const aborted = error instanceof Error && error.name === 'AbortError';
       throw new ApiError(
         aborted ? 504 : 502,
         aborted
-          ? `Timed out contacting .NET backend after ${env.DOTNET_API_TIMEOUT_MS}ms (${new URL(path, env.DOTNET_API_BASE_URL).toString()})`
+          ? `Timed out contacting .NET backend after ${env.DOTNET_API_TIMEOUT_MS}ms (${url})`
           : 'Could not connect to existing .NET backend',
         error instanceof Error ? error.message : String(error),
       );
@@ -146,9 +169,23 @@ export class DotnetApiClient {
     const text = await response.text();
     const payload = parseResponseBody(text);
     if (!response.ok) {
+      vlog('dotnet', 'request failed', {
+        status: response.status,
+        path,
+        payload,
+      });
       throw new ApiError(
         response.status,
-        payload?.message ?? 'Existing backend request failed',
+        extractErrorMessage(payload) ??
+          `Existing backend request failed (${response.status})`,
+        payload,
+      );
+    }
+    if (isFailureEnvelope(payload)) {
+      vlog('dotnet', 'request success=false', { path, payload });
+      throw new ApiError(
+        502,
+        extractErrorMessage(payload) ?? 'Existing backend returned success=false',
         payload,
       );
     }
@@ -163,4 +200,189 @@ function parseResponseBody(text: string) {
   } catch {
     return { raw: text };
   }
+}
+
+function asPayload(payload: unknown): Payload {
+  return payload && typeof payload === 'object'
+    ? (payload as Payload)
+    : {};
+}
+
+function str(value: unknown, fallback = ''): string {
+  if (value === undefined || value === null) return fallback;
+  const s = String(value).trim();
+  return s || fallback;
+}
+
+function num(value: unknown, fallback: number): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function toTaskPayload(raw: unknown): Payload {
+  const data = asPayload(raw);
+  const domain = str(data.domain, 'General');
+  const project = str(data.project, domain);
+  const startDate = str(data.startDate ?? data.start_date, defaultTodayNine());
+  const dueDate = str(data.dueDate ?? data.due_date, new Date().toISOString());
+
+  return {
+    title: str(data.title),
+    type: str(data.task_type ?? data.type, 'Regular task'),
+    profile: str(data.profile, 'Business'),
+    project,
+    assignee: str(data.assignee),
+    domain,
+    objective: str(data.objective, str(data.title)),
+    isUrgent: toUrgent(data.urgency ?? data.isUrgent),
+    description: str(data.description),
+    dueDate,
+    startDate,
+    priority: toTaskPriority(data.priority),
+    estimatedTime: toEstimatedHours(data.estimated_time, startDate, dueDate),
+  };
+}
+
+function toNotePayload(raw: unknown): Payload {
+  const data = asPayload(raw);
+  const content = str(
+    data.content ?? data.notesText ?? data.text ?? data.transcript,
+  );
+  return {
+    title: str(data.title, 'Untitled'),
+    notesText: content,
+    hashtag: toHashtagString(content, data.tag),
+  };
+}
+
+function toEventPayload(raw: unknown): Payload {
+  const data = asPayload(raw);
+  const eventName = str(data.eventName ?? data.title);
+  return {
+    eventName,
+    eventDate: str(
+      data.eventDate ?? data.start_time ?? data.date,
+      new Date().toISOString(),
+    ),
+    isPriority: toPriorityFlag(data.isPriority ?? data.priority),
+    title: str(data.title ?? data.eventName),
+    duration: toEventDuration(data.duration, eventName),
+    participants: joinList(data.participants),
+    reminders: joinList(data.reminders, '10min_before'),
+  };
+}
+
+function toWorklogFormData(raw: unknown): FormData {
+  const data = asPayload(raw);
+  const form = new FormData();
+  form.append('TaskDetailsID', str(data.TaskDetailsID, '1'));
+  form.append('ProcessPhaseID', str(data.ProcessPhaseID, '1'));
+  form.append('ActivityID', str(data.ActivityID, '1'));
+  form.append('CompetenceID', str(data.CompetenceID, '1'));
+  form.append('What', str(data.What));
+  form.append('How', str(data.How));
+  form.append('StartTime', str(data.StartTime, new Date().toISOString()));
+  form.append('EndTime', str(data.EndTime, new Date().toISOString()));
+  form.append('RealizationTime', str(data.RealizationTime, '0'));
+  form.append('Comment', str(data.Comment));
+  form.append('TaskName', str(data.TaskName, 'General'));
+  if (data.AttachmentPath) form.append('AttachmentPath', String(data.AttachmentPath));
+  return form;
+}
+
+function toTaskPriority(value: unknown): number {
+  const p = str(value, 'standard').toLowerCase();
+  if (p === 'extreme') return 4;
+  if (p === 'high') return 1;
+  if (p === 'low') return 3;
+  return 2;
+}
+
+function toUrgent(value: unknown): boolean {
+  if (typeof value === 'boolean') return value;
+  return str(value, 'normal').toLowerCase() === 'urgent';
+}
+
+function toPriorityFlag(value: unknown): number {
+  if (typeof value === 'boolean') return value ? 1 : 0;
+  if (typeof value === 'number') return value === 0 ? 0 : 1;
+  const s = str(value).toLowerCase();
+  return ['yes', 'true', '1', 'high', 'urgent'].includes(s) ? 1 : 0;
+}
+
+function toEventDuration(value: unknown, eventName: string): number {
+  if (value !== undefined && value !== null && value !== '') return num(value, 60);
+  const defaults: Record<string, number> = {
+    Training: 180,
+    Workshop: 120,
+    Conference: 240,
+    Presentation: 90,
+    Interview: 45,
+    Trip: 120,
+  };
+  return defaults[eventName] ?? 60;
+}
+
+function joinList(value: unknown, fallback = ''): string {
+  if (Array.isArray(value)) return value.map((v) => str(v)).filter(Boolean).join(',');
+  return str(value, fallback)
+    .split(/[,;]/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join(',');
+}
+
+function toHashtagString(content: string, manual: unknown): string {
+  const fromContent = content.match(/#[a-zA-Z0-9_]+/g) ?? [];
+  const fromManual = str(manual)
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+    .map((tag) => (tag.startsWith('#') ? tag : `#${tag}`));
+  return Array.from(new Set([...fromContent, ...fromManual])).join(',');
+}
+
+function defaultTodayNine(): string {
+  const d = new Date();
+  d.setHours(9, 0, 0, 0);
+  return d.toISOString();
+}
+
+function toEstimatedHours(
+  estimated: unknown,
+  startDate: string,
+  dueDate: string,
+): number {
+  if (estimated !== undefined && estimated !== null && estimated !== '') {
+    return num(estimated, 1);
+  }
+  const start = new Date(startDate).getTime();
+  const due = new Date(dueDate).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(due) || due <= start) return 1;
+  const hours = (due - start) / (1000 * 60 * 60);
+  return Math.max(0.1, Math.round(hours * 10) / 10);
+}
+
+function extractErrorMessage(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== 'object') return undefined;
+  const p = payload as Record<string, unknown>;
+  for (const key of ['message', 'Message', 'error', 'Error', 'title', 'raw']) {
+    if (typeof p[key] === 'string' && p[key]) return p[key];
+  }
+  return undefined;
+}
+
+function isFailureEnvelope(payload: unknown): boolean {
+  return (
+    !!payload &&
+    typeof payload === 'object' &&
+    (payload as Record<string, unknown>).success === false
+  );
+}
+
+function previewBody(body: unknown): unknown {
+  if (typeof FormData !== 'undefined' && body instanceof FormData) {
+    return 'FormData';
+  }
+  return body;
 }
