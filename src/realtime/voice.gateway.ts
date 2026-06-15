@@ -69,7 +69,22 @@ export function attachVoiceGateway(server: Server) {
     });
 
     socket.on('voice:start', () => {
-      vlog('gateway', 'voice:start -> new session');
+      const transport = socket.conn.transport.name;
+      vlog('gateway', 'voice:start -> new session', { transport });
+      if (transport !== 'websocket') {
+        vlog(
+          'gateway',
+          'WARNING: transport is "' +
+            transport +
+            '" not "websocket". Binary audio is unreliable over polling. Set the client to io(url, { transports: ["websocket"] }) and ensure any proxy forwards the WebSocket upgrade.',
+        );
+        socket.emit('voice:warning', {
+          message:
+            'Connected over ' +
+            transport +
+            ' transport. Use websocket for audio streaming.',
+        });
+      }
       audioChunks = 0;
       session = new VoiceSession(socket, socket.data.auth);
       session.start();
@@ -126,11 +141,21 @@ export function attachVoiceGateway(server: Server) {
     });
 
     socket.on('voice:commit', () => {
-      vlog('gateway', 'voice:commit');
+      vlog('gateway', 'voice:commit', { audioChunks });
+      if (audioChunks === 0) {
+        vlog(
+          'gateway',
+          'WARNING: voice:commit but 0 audio chunks were received. The app never sent voice:audio. Check: (1) recording actually started after voice:ready, (2) chunks are emitted as BINARY, (3) transport is websocket.',
+        );
+        socket.emit('voice:warning', {
+          message:
+            'No audio received. Stream binary voice:audio (PCM linear16, 16 kHz, mono) over the websocket transport before committing.',
+        });
+      }
       session?.commit();
     });
     socket.on('voice:stop', () => {
-      vlog('gateway', 'voice:stop');
+      vlog('gateway', 'voice:stop', { audioChunks });
       session?.stop();
     });
     socket.on('voice:cancel', () => {
