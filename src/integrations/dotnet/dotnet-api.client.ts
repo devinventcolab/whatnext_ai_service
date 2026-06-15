@@ -120,7 +120,7 @@ export class DotnetApiClient {
     body?: unknown,
   ): Promise<T> {
     let response: Response;
-    const url = new URL(path, env.DOTNET_API_BASE_URL).toString();
+    const url = buildApiUrl(path);
     const isFormData =
       typeof FormData !== 'undefined' && body instanceof FormData;
 
@@ -169,24 +169,26 @@ export class DotnetApiClient {
     const text = await response.text();
     const payload = parseResponseBody(text);
     if (!response.ok) {
+      const details = sanitizeErrorDetails(payload);
       vlog('dotnet', 'request failed', {
         status: response.status,
         path,
-        payload,
+        payload: details,
       });
       throw new ApiError(
         response.status,
         extractErrorMessage(payload) ??
-          `Existing backend request failed (${response.status})`,
-        payload,
+          `Existing backend request failed (${response.status} ${response.statusText || 'Error'})`,
+        details,
       );
     }
     if (isFailureEnvelope(payload)) {
-      vlog('dotnet', 'request success=false', { path, payload });
+      const details = sanitizeErrorDetails(payload);
+      vlog('dotnet', 'request success=false', { path, payload: details });
       throw new ApiError(
         502,
         extractErrorMessage(payload) ?? 'Existing backend returned success=false',
-        payload,
+        details,
       );
     }
     return payload as T;
@@ -200,6 +202,18 @@ function parseResponseBody(text: string) {
   } catch {
     return { raw: text };
   }
+}
+
+/**
+ * Joins DOTNET_API_BASE_URL and endpoint paths without losing the base path.
+ *
+ * `new URL('/user/x', 'http://host/api')` becomes `http://host/user/x`, which
+ * drops `/api` and returns the MVC 404 HTML page. This helper preserves `/api`.
+ */
+function buildApiUrl(path: string): string {
+  const base = env.DOTNET_API_BASE_URL.replace(/\/+$/, '');
+  const endpoint = path.replace(/^\/+/, '');
+  return `${base}/${endpoint}`;
 }
 
 function asPayload(payload: unknown): Payload {
@@ -367,9 +381,30 @@ function extractErrorMessage(payload: unknown): string | undefined {
   if (!payload || typeof payload !== 'object') return undefined;
   const p = payload as Record<string, unknown>;
   for (const key of ['message', 'Message', 'error', 'Error', 'title', 'raw']) {
-    if (typeof p[key] === 'string' && p[key]) return p[key];
+    if (typeof p[key] !== 'string' || !p[key]) continue;
+    const value = p[key];
+    if (looksLikeHtml(value)) {
+      if (value.includes('404') || /page not found/i.test(value)) {
+        return 'Existing backend route returned 404 Not Found. Please check the .NET API base URL and endpoint path.';
+      }
+      return 'Existing backend returned an HTML error page instead of JSON.';
+    }
+    return value;
   }
   return undefined;
+}
+
+function looksLikeHtml(value: string): boolean {
+  return /<!doctype html|<html[\s>]/i.test(value);
+}
+
+function sanitizeErrorDetails(payload: unknown): unknown {
+  if (!payload || typeof payload !== 'object') return payload;
+  const copy: Record<string, unknown> = { ...(payload as Record<string, unknown>) };
+  if (typeof copy.raw === 'string' && looksLikeHtml(copy.raw)) {
+    copy.raw = '[HTML error page omitted]';
+  }
+  return copy;
 }
 
 function isFailureEnvelope(payload: unknown): boolean {
