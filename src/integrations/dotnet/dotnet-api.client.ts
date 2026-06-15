@@ -109,6 +109,14 @@ export class DotnetApiClient {
   ): Promise<T> {
     let response: Response;
 
+    // Abort the request if the .NET backend does not respond in time, so a
+    // slow/unreachable host can never hang the socket handshake or a tool call.
+    const controller = new AbortController();
+    const timer = setTimeout(
+      () => controller.abort(),
+      env.DOTNET_API_TIMEOUT_MS,
+    );
+
     try {
       response = await fetch(
         new URL(path, env.DOTNET_API_BASE_URL).toString(),
@@ -119,14 +127,20 @@ export class DotnetApiClient {
             'Content-Type': 'application/json',
           },
           body: body === undefined ? undefined : JSON.stringify(body),
+          signal: controller.signal,
         },
       );
     } catch (error) {
+      const aborted = error instanceof Error && error.name === 'AbortError';
       throw new ApiError(
-        502,
-        'Could not connect to existing .NET backend',
+        aborted ? 504 : 502,
+        aborted
+          ? `Timed out contacting .NET backend after ${env.DOTNET_API_TIMEOUT_MS}ms (${new URL(path, env.DOTNET_API_BASE_URL).toString()})`
+          : 'Could not connect to existing .NET backend',
         error instanceof Error ? error.message : String(error),
       );
+    } finally {
+      clearTimeout(timer);
     }
 
     const text = await response.text();

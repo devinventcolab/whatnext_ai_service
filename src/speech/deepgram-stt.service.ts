@@ -6,6 +6,8 @@ import { vlog } from '../shared/debug';
 export class DeepgramSttService extends EventEmitter {
   private socket?: WebSocket;
   private keepAlive?: NodeJS.Timeout;
+  private forwarded = 0;
+  private dropped = 0;
 
   start() {
     if (!env.DEEPGRAM_API_KEY) {
@@ -62,7 +64,25 @@ export class DeepgramSttService extends EventEmitter {
   }
 
   send(chunk: Buffer) {
-    if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(chunk);
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(chunk);
+      this.forwarded += 1;
+      if (this.forwarded === 1) {
+        vlog('stt', 'forwarding audio to deepgram', `${chunk.length} bytes`);
+      }
+    } else if (!env.DEEPGRAM_API_KEY) {
+      // No key: warning already emitted on start(); nothing to forward to.
+    } else {
+      // Audio arrived before the Deepgram socket was open (or after it closed)
+      // and is being dropped — a common cause of "no transcript".
+      this.dropped += 1;
+      if (this.dropped === 1 || this.dropped % 50 === 0) {
+        vlog(
+          'stt',
+          `DROPPING audio: deepgram socket not open (state=${this.socket?.readyState}), dropped=${this.dropped}`,
+        );
+      }
+    }
   }
 
   /**

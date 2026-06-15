@@ -1,0 +1,65 @@
+{
+  "info": {
+    "_postman_id": "b6f2a3c1-9d44-4e2a-9b7e-7f1c0a2d5e10",
+    "name": "WhatNext Voice (Socket.IO over WebSocket)",
+    "description": "Test the WhatNext voice microservice from Postman.\n\nThe backend uses **Socket.IO v4** (Engine.IO v4). Postman's dedicated Socket.IO request type cannot send the `auth` object the server needs, so this collection uses a **raw WebSocket request** and speaks the Socket.IO framing by hand. Authentication is sent in the Socket.IO CONNECT frame: `40{\"token\":\"<JWT>\"}` — exactly what the gateway reads from `socket.handshake.auth.token`.\n\nIMPORTANT: Postman does not fully import/export WebSocket requests. If the request below does not open as a WebSocket, create one manually: New > WebSocket Request, paste the URL `{{ws_url}}`, Connect, then send the frames listed in the request description (and in the collection README).\n\nVariables:\n- `ws_url`  -> ws://localhost:8980/socket.io/?EIO=4&transport=websocket\n- `jwt`     -> a valid JWT access token (any decodable token with a `sub` claim works in development)\n\nSee docs/postman/README.md for full step-by-step instructions and expected responses.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Voice socket (raw WebSocket)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{ws_url}}",
+          "host": ["{{ws_url}}"]
+        },
+        "description": "Raw WebSocket to the Socket.IO endpoint.\n\nAfter you click Connect, the server (Engine.IO) sends an OPEN frame starting with `0{...}`. Then send these text frames IN ORDER from the Postman message composer (each line is one message):\n\n1) Connect the Socket.IO namespace WITH auth (replaces handshake.auth):\n   40{\"token\":\"{{jwt}}\"}\n   -> expect: 40{\"sid\":\"...\"}        (success)\n   -> on auth failure: 44{\"message\":\"Missing auth token\"}\n\n2) Start a voice session:\n   42[\"voice:start\"]\n   -> expect: 42[\"voice:ready\",{\"userId\":\"...\",\"encoding\":\"linear16\",\"sampleRate\":16000}]\n   -> if Deepgram key missing: 42[\"voice:warning\",{\"message\":\"Deepgram API key is not configured\"}]\n\n3) Liveness check:\n   42[\"voice:ping\"]\n   -> expect: 42[\"voice:pong\",{\"timestamp\":\"...\"}]\n\n4) Manually finalize the current utterance:\n   42[\"voice:commit\"]\n   -> expect: 42[\"voice:committed\",{\"timestamp\":\"...\"}]\n\n5) End the session:\n   42[\"voice:stop\"]\n   -> expect: 42[\"voice:closed\"]\n\nKEEP-ALIVE: the server sends Engine.IO ping `2` periodically; reply with `3` (pong) to avoid a timeout disconnect (~20s).\n\nLIMITATION: `voice:audio` carries raw binary PCM (Socket.IO BINARY_EVENT, packet `45` + separate binary frames). This is impractical to send by hand in Postman, so real transcription cannot be exercised here. Use the web client (whatnext_front) or `npm run voice:file` for end-to-end audio tests."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "ws_url",
+      "value": "ws://localhost:8980/socket.io/?EIO=4&transport=websocket",
+      "type": "string"
+    },
+    {
+      "key": "jwt",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "frame_connect",
+      "value": "40{\"token\":\"{{jwt}}\"}",
+      "type": "string"
+    },
+    {
+      "key": "frame_voice_start",
+      "value": "42[\"voice:start\"]",
+      "type": "string"
+    },
+    {
+      "key": "frame_voice_ping",
+      "value": "42[\"voice:ping\"]",
+      "type": "string"
+    },
+    {
+      "key": "frame_voice_commit",
+      "value": "42[\"voice:commit\"]",
+      "type": "string"
+    },
+    {
+      "key": "frame_voice_stop",
+      "value": "42[\"voice:stop\"]",
+      "type": "string"
+    },
+    {
+      "key": "frame_engineio_pong",
+      "value": "3",
+      "type": "string"
+    }
+  ]
+}

@@ -15,7 +15,27 @@ export function attachVoiceGateway(server: Server) {
     maxHttpBufferSize: 2 * 1024 * 1024,
   });
 
+  // Low-level transport failures (bad origin, payload too large, bad transport)
+  // never reach the auth middleware, so log them here too.
+  io.engine.on('connection_error', (err) => {
+    vlog('gateway', 'engine connection_error', {
+      code: err.code,
+      message: err.message,
+    });
+  });
+
   io.use(async (socket, next) => {
+    const hasToken = Boolean(
+      socket.handshake.auth?.token || socket.handshake.headers.authorization,
+    );
+    // Always log the attempt BEFORE authenticating, so a hanging/failing auth
+    // is visible even though io.on('connection') has not fired yet.
+    vlog('gateway', 'handshake attempt', {
+      address: socket.handshake.address,
+      transport: socket.conn.transport.name,
+      hasToken,
+    });
+
     try {
       const token = String(
         socket.handshake.auth?.token ??
@@ -25,9 +45,12 @@ export function attachVoiceGateway(server: Server) {
           '',
       );
       socket.data.auth = await authService.authenticateToken(token);
+      vlog('gateway', 'handshake authenticated', {
+        user: socket.data.auth.user.id,
+      });
       next();
     } catch (error) {
-      vlog('gateway', 'auth rejected', (error as Error).message);
+      vlog('gateway', 'handshake REJECTED', (error as Error).message);
       next(error as Error);
     }
   });
@@ -52,13 +75,54 @@ export function attachVoiceGateway(server: Server) {
       session.start();
     });
 
-    socket.on('voice:audio', (chunk: Buffer) => {
+    socket.on('voice:audio', (chunk: unknown) => {
       audioChunks += 1;
+
+      // Diagnose the #1 mobile mistake: sending audio as a base64 STRING
+      // instead of raw binary. The server would then feed garbage to Deepgram
+      // and you'd get no transcript and no response.
+      if (audioChunks === 1) {
+        const kind =
+          typeof chunk === 'string'
+            ? 'string'
+            : chunk instanceof ArrayBuffer
+              ? 'ArrayBuffer'
+              : Buffer.isBuffer(chunk)
+                ? 'Buffer'
+                : typeof chunk;
+        const len =
+          typeof chunk === 'string'
+            ? chunk.length
+            : Buffer.isBuffer(chunk)
+              ? chunk.length
+              : chunk instanceof ArrayBuffer
+                ? chunk.byteLength
+                : undefined;
+        vlog('gateway', 'first voice:audio', { kind, len });
+        if (typeof chunk === 'string') {
+          vlog(
+            'gateway',
+            'WARNING: voice:audio is a STRING. Send BINARY PCM (linear16, 16kHz, mono), not base64. In RN: socket.emit("voice:audio", Buffer.from(base64,"base64")).',
+          );
+          socket.emit('voice:warning', {
+            message:
+              'Audio received as text (base64). Send raw binary PCM linear16 16kHz mono instead.',
+          });
+        }
+      }
+
       // Throttle: chunks are tiny and frequent, so log every 50th.
       if (audioChunks % 50 === 0) {
-        vlog('gateway', `voice:audio x${audioChunks}`, `${chunk.length} bytes`);
+        const len = Buffer.isBuffer(chunk)
+          ? chunk.length
+          : chunk instanceof ArrayBuffer
+            ? chunk.byteLength
+            : typeof chunk === 'string'
+              ? chunk.length
+              : 0;
+        vlog('gateway', `voice:audio x${audioChunks}`, `${len} bytes`);
       }
-      session?.audio(Buffer.from(chunk));
+      session?.audio(Buffer.from(chunk as Buffer));
     });
 
     socket.on('voice:commit', () => {

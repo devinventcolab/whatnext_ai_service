@@ -27,6 +27,8 @@ export class VoiceSession {
   private finalizing = false;
   /** True while an assistant turn is in flight (prevents overlapping replies). */
   private processing = false;
+  /** One-time flag to log the first interim transcript from Deepgram. */
+  private sawPartial = false;
   /** Debounce to use for the in-progress finalize (manual vs. auto). */
   private flushDelay = FINALIZE_DEBOUNCE_MS;
   private finalizeTimer?: NodeJS.Timeout;
@@ -44,6 +46,10 @@ export class VoiceSession {
     );
 
     this.stt.on('partial', (text) => {
+      if (!this.sawPartial) {
+        this.sawPartial = true;
+        vlog('session', 'stt first partial (deepgram is transcribing)', text);
+      }
       this.latestPartial = String(text);
       this.socket.emit('transcript:partial', { text: this.combinedText() });
     });

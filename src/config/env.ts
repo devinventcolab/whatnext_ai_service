@@ -15,6 +15,9 @@ const envSchema = z.object({
     .transform((v) => (v === undefined ? undefined : v === 'true')),
   APP_ORIGIN: z.string().default('*'),
   DOTNET_API_BASE_URL: z.string().url().default('http://localhost:5000/api'),
+  // Hard timeout for outbound calls to the .NET backend so a slow/unreachable
+  // host fails fast instead of hanging the socket handshake or a tool call.
+  DOTNET_API_TIMEOUT_MS: z.coerce.number().default(8000),
   DOTNET_AUTH_ME_PATH: z.string().default('/auth/me'),
   DOTNET_TASKS_PATH: z.string().default('/tasks'),
   DOTNET_EVENTS_PATH: z.string().default('/events'),
