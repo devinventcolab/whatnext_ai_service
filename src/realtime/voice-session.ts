@@ -1,5 +1,5 @@
 import { Socket } from 'socket.io';
-import { OpenAiAssistantService } from '../ai/openai-assistant.service';
+import { ConversationManagerService } from '../ai/conversation-manager.service';
 import { AuthContext } from '../auth/auth.types';
 import { vlog } from '../shared/debug';
 import { DeepgramSttService } from '../speech/deepgram-stt.service';
@@ -17,7 +17,7 @@ const AUTO_FINALIZE_DEBOUNCE_MS = 250;
 export class VoiceSession {
   private readonly stt = new DeepgramSttService();
   private readonly tts = new DeepgramTtsService();
-  private readonly assistant = new OpenAiAssistantService();
+  private readonly assistant = new ConversationManagerService();
 
   /** Finalized transcript segments accumulated during the current utterance. */
   private finals: string[] = [];
@@ -178,7 +178,7 @@ export class VoiceSession {
       this.socket.emit('transcript:final', { text });
 
       vlog('session', 'assistant thinking…');
-      const response = await this.assistant.handleTranscript({
+      const response = await this.assistant.handle({
         token: this.auth.token,
         transcript: text,
         userId: this.auth.user.id,
