@@ -100,8 +100,9 @@ export class ConversationManagerService {
       );
     }
 
-    // 4) Merge any field values mentioned this turn.
+    // 4) Merge any field values mentioned this turn, then auto-fill defaults.
     const provided = this.mergeFields(nlu.fields);
+    this.applyDefaults(input.userId);
 
     // 5) Explicit confirmation -> create (only when fully collected).
     if (
@@ -158,7 +159,7 @@ export class ConversationManagerService {
       'Rules:',
       '- "intent": the intent the user is expressing now. If they are only answering a follow-up or changing a field, repeat the CURRENT intent. Set a NEW intent only if they clearly change their mind (e.g. "actually make a note instead").',
       '- "command": "confirm" when the user agrees to create (yes/yep/go ahead/confirm/create it); "cancel" when they abandon (cancel/never mind/stop/forget it); "modify" when they change an already-provided field; "provide" when they give new info; otherwise "none".',
-      '- "fields": include ONLY fields explicitly mentioned this turn, using the exact field names above. Use allowed enum values verbatim. "duration" is a number of minutes. Do not invent values; omit unknowns.',
+      '- "fields": include ONLY fields explicitly mentioned this turn, using the exact field names above. Use allowed enum values verbatim. "duration" is minutes (number); "estimated_time" is hours (number); dates/times must be ISO 8601 strings. Do not invent values; omit unknowns.',
       '- "reply": only set this with a short clarification when the user is off-topic or ambiguous; otherwise use an empty string.',
     ].join('\n');
 
@@ -240,6 +241,19 @@ export class ConversationManagerService {
       }
     }
     return applied;
+  }
+
+  /** Fills required/optional fields that have a default and are still empty. */
+  private applyDefaults(userId: string) {
+    if (!this.intent) return;
+    const ctx = { now: new Date(), userId, fields: this.fields };
+    for (const f of WORKERS[this.intent].fields) {
+      if (!f.default) continue;
+      const v = this.fields[f.name];
+      if (v === undefined || v === null || v === '') {
+        this.fields[f.name] = f.default(ctx);
+      }
+    }
   }
 
   private missingRequired(): string[] {
