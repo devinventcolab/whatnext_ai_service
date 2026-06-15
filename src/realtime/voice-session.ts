@@ -98,6 +98,27 @@ export class VoiceSession {
     this.stt.send(chunk);
   }
 
+  /**
+   * Direct text input from a client that performs its own (on-device) speech
+   * recognition and sends the final transcript instead of streaming audio.
+   * Runs the same assistant + TTS pipeline as a Deepgram transcript.
+   */
+  submitText(text: string) {
+    const clean = text.trim();
+    if (!clean) return;
+    if (this.processing) {
+      vlog('session', 'voice:text ignored (assistant busy)');
+      return;
+    }
+    // Discard any partial audio-based state; this turn is text-driven.
+    this.clearFinalizeTimer();
+    this.finalizing = false;
+    this.finals = [];
+    this.latestPartial = '';
+    vlog('session', 'voice:text (device STT) -> assistant', clean);
+    void this.handleTranscript(clean);
+  }
+
   commit() {
     vlog('session', 'commit (manual finalize)');
     this.socket.emit('voice:committed', {

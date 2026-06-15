@@ -58,6 +58,7 @@ export function attachVoiceGateway(server: Server) {
   io.on('connection', (socket) => {
     let session: VoiceSession | undefined;
     let audioChunks = 0;
+    let textSubmitted = false;
     vlog('gateway', 'connection', {
       id: socket.id,
       user: socket.data.auth?.user?.id,
@@ -86,70 +87,72 @@ export function attachVoiceGateway(server: Server) {
         });
       }
       audioChunks = 0;
+      textSubmitted = false;
       session = new VoiceSession(socket, socket.data.auth);
       session.start();
+    });
+
+    // Clients that do on-device speech-to-text send the final transcript here
+    // instead of streaming audio (e.g. the React Native app using device STT).
+    socket.on('voice:text', (payload: unknown) => {
+      const text =
+        typeof payload === 'string'
+          ? payload
+          : String((payload as { text?: unknown })?.text ?? '');
+      textSubmitted = true;
+      vlog('gateway', 'voice:text', { text: text.slice(0, 80) });
+      if (!session) {
+        vlog('gateway', 'voice:text before voice:start — starting session');
+        session = new VoiceSession(socket, socket.data.auth);
+        session.start();
+      }
+      session.submitText(text);
     });
 
     socket.on('voice:audio', (chunk: unknown) => {
       audioChunks += 1;
 
-      // Diagnose the #1 mobile mistake: sending audio as a base64 STRING
-      // instead of raw binary. The server would then feed garbage to Deepgram
-      // and you'd get no transcript and no response.
+      // Accept binary (Buffer/ArrayBuffer/TypedArray) AND base64 strings, so
+      // mobile clients can send whichever is easiest. Garbage in = no transcript.
+      const buf = toAudioBuffer(chunk);
+
       if (audioChunks === 1) {
-        const kind =
-          typeof chunk === 'string'
-            ? 'string'
-            : chunk instanceof ArrayBuffer
-              ? 'ArrayBuffer'
-              : Buffer.isBuffer(chunk)
-                ? 'Buffer'
-                : typeof chunk;
-        const len =
-          typeof chunk === 'string'
-            ? chunk.length
-            : Buffer.isBuffer(chunk)
-              ? chunk.length
-              : chunk instanceof ArrayBuffer
-                ? chunk.byteLength
-                : undefined;
-        vlog('gateway', 'first voice:audio', { kind, len });
-        if (typeof chunk === 'string') {
+        vlog('gateway', 'first voice:audio', {
+          kind: describeKind(chunk),
+          bytes: buf?.length ?? 0,
+        });
+        if (!buf || buf.length === 0) {
           vlog(
             'gateway',
-            'WARNING: voice:audio is a STRING. Send BINARY PCM (linear16, 16kHz, mono), not base64. In RN: socket.emit("voice:audio", Buffer.from(base64,"base64")).',
+            'WARNING: first voice:audio decoded to 0 bytes. Send raw PCM (linear16, 16kHz, mono) as binary, or a base64 string of that PCM.',
           );
           socket.emit('voice:warning', {
             message:
-              'Audio received as text (base64). Send raw binary PCM linear16 16kHz mono instead.',
+              'Audio payload was empty/undecodable. Send PCM linear16 16kHz mono as binary or base64.',
           });
         }
       }
 
       // Throttle: chunks are tiny and frequent, so log every 50th.
       if (audioChunks % 50 === 0) {
-        const len = Buffer.isBuffer(chunk)
-          ? chunk.length
-          : chunk instanceof ArrayBuffer
-            ? chunk.byteLength
-            : typeof chunk === 'string'
-              ? chunk.length
-              : 0;
-        vlog('gateway', `voice:audio x${audioChunks}`, `${len} bytes`);
+        vlog('gateway', `voice:audio x${audioChunks}`, `${buf?.length ?? 0} bytes`);
       }
-      session?.audio(Buffer.from(chunk as Buffer));
+
+      if (buf && buf.length) session?.audio(buf);
     });
 
     socket.on('voice:commit', () => {
-      vlog('gateway', 'voice:commit', { audioChunks });
-      if (audioChunks === 0) {
+      vlog('gateway', 'voice:commit', { audioChunks, textSubmitted });
+      // Only warn for audio-streaming clients. Device-STT clients send text via
+      // voice:text, so a commit with 0 audio chunks is expected and fine.
+      if (audioChunks === 0 && !textSubmitted) {
         vlog(
           'gateway',
-          'WARNING: voice:commit but 0 audio chunks were received. The app never sent voice:audio. Check: (1) recording actually started after voice:ready, (2) chunks are emitted as BINARY, (3) transport is websocket.',
+          'WARNING: voice:commit but 0 audio chunks and no voice:text. The app sent nothing. Check recording/emit, or send the transcript via voice:text if you use on-device STT.',
         );
         socket.emit('voice:warning', {
           message:
-            'No audio received. Stream binary voice:audio (PCM linear16, 16 kHz, mono) over the websocket transport before committing.',
+            'No audio or text received. Stream voice:audio (PCM linear16 16kHz) or send a transcript via voice:text before committing.',
         });
       }
       session?.commit();
@@ -169,4 +172,34 @@ export function attachVoiceGateway(server: Server) {
   });
 
   return io;
+}
+
+function describeKind(chunk: unknown): string {
+  if (typeof chunk === 'string') return 'string(base64)';
+  if (Buffer.isBuffer(chunk)) return 'Buffer';
+  if (chunk instanceof ArrayBuffer) return 'ArrayBuffer';
+  if (ArrayBuffer.isView(chunk)) return 'TypedArray';
+  if (chunk && typeof chunk === 'object' && 'data' in chunk)
+    return 'object{data}';
+  return typeof chunk;
+}
+
+/**
+ * Normalizes whatever the client emitted on voice:audio into a Node Buffer:
+ * binary (Buffer/ArrayBuffer/TypedArray), a base64 string, or a serialized
+ * { type: 'Buffer', data: [...] } object. Returns undefined if undecodable.
+ */
+function toAudioBuffer(chunk: unknown): Buffer | undefined {
+  if (!chunk) return undefined;
+  if (Buffer.isBuffer(chunk)) return chunk;
+  if (typeof chunk === 'string') return Buffer.from(chunk, 'base64');
+  if (chunk instanceof ArrayBuffer) return Buffer.from(chunk);
+  if (ArrayBuffer.isView(chunk)) {
+    const view = chunk as ArrayBufferView;
+    return Buffer.from(view.buffer, view.byteOffset, view.byteLength);
+  }
+  if (typeof chunk === 'object' && Array.isArray((chunk as { data?: unknown }).data)) {
+    return Buffer.from((chunk as { data: number[] }).data);
+  }
+  return undefined;
 }
