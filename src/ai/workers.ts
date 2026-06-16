@@ -26,9 +26,9 @@ export interface FieldSpec {
   type?: 'string' | 'number' | 'array';
   enum?: readonly string[];
   /**
-   * Auto-fill used when the field is missing. Fields with a default are never
-   * asked about — they are populated silently and shown in the summary so the
-   * user can still change them before confirming.
+   * Auto-fill used when an OPTIONAL field is missing. Required fields are never
+   * defaulted by the conversation manager; they must be explicitly collected
+   * from the user before confirmation.
    */
   default?: (ctx: DefaultContext) => unknown;
 }
@@ -48,9 +48,8 @@ const TASK_DEFAULTS = {
 };
 
 /**
- * One worker per intent. Required fields with a `default` are auto-filled
- * (matching the canonical app's default behavior); only required fields
- * WITHOUT a default trigger a follow-up question.
+ * One worker per intent. Required fields are always collected from the user.
+ * Defaults are used only for optional backend convenience fields.
  */
 export const WORKERS: Record<Intent, WorkerSpec> = {
   // create_task
@@ -67,19 +66,19 @@ export const WORKERS: Record<Intent, WorkerSpec> = {
       },
       {
         name: 'urgency',
-        required: true,
+        required: false,
         enum: ['normal', 'urgent'],
         default: () => 'normal',
       },
-      { name: 'task_type', required: true, default: () => TASK_DEFAULTS.task_type },
-      { name: 'profile', required: true, default: () => TASK_DEFAULTS.profile },
+      { name: 'task_type', required: false, default: () => TASK_DEFAULTS.task_type },
+      { name: 'profile', required: false, default: () => TASK_DEFAULTS.profile },
       {
         name: 'estimated_time',
         required: true,
         type: 'number',
         default: () => 1,
       },
-      { name: 'assignee', required: false, default: () => TASK_DEFAULTS.assignee },
+      { name: 'assignee', required: true, default: () => TASK_DEFAULTS.assignee },
       {
         name: 'startDate',
         required: false,
@@ -87,7 +86,7 @@ export const WORKERS: Record<Intent, WorkerSpec> = {
       },
       {
         name: 'dueDate',
-        required: false,
+        required: true,
         default: ({ now }) => isoLocal(atNine(now, 1)),
       },
       { name: 'domain', required: false, default: () => TASK_DEFAULTS.domain },
@@ -106,17 +105,17 @@ export const WORKERS: Record<Intent, WorkerSpec> = {
       { name: 'content', required: true },
       {
         name: 'type',
-        required: true,
+        required: false,
         enum: ['Idea', 'Reminder', 'Personal'],
         default: () => 'Reminder',
       },
-      { name: 'tag', required: true, default: () => 'General' },
+      { name: 'tag', required: false, default: () => 'General' },
       {
         name: 'created_at',
-        required: true,
+        required: false,
         default: ({ now }) => now.toISOString(),
       },
-      { name: 'created_by', required: true, default: ({ userId }) => userId },
+      { name: 'created_by', required: false, default: ({ userId }) => userId },
     ],
   },
 

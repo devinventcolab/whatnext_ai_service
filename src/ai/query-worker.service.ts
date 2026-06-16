@@ -38,6 +38,18 @@ export class QueryWorkerService {
     }
 
     const entity = targets[0];
+    const id = detailId(input.query);
+    if (input.mode === 'detail' && id) {
+      const detail = await this.entities.getById(input.auth, entity, id);
+      if (!detail.ok) return this.failure(detail.message, entity, input.language);
+      if (!detail.value) {
+        return languageManager.t('query.noResults', input.language, {
+          entity: plural(entity, input.language),
+        });
+      }
+      return this.listRecords(entity, [detail.value], input.language);
+    }
+
     const result = await this.entities.list(input.auth, entity, input.query);
     if (!result.ok) return this.failure(result.message, entity, input.language);
     if (!result.value.length) {
@@ -118,4 +130,13 @@ export class QueryWorkerService {
 
 function plural(entity: EntityType, language: SupportedLanguage): string {
   return languageManager.t(ENTITY_SPECS[entity].pluralKey, language);
+}
+
+function detailId(query: EntityQuery): string | undefined {
+  const direct = (query as Record<string, unknown>).id;
+  if (direct !== undefined && direct !== null && String(direct).trim()) {
+    return String(direct).trim();
+  }
+  const fromText = query.text?.match(/\b\d+\b/)?.[0];
+  return fromText;
 }

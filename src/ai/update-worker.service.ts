@@ -144,6 +144,7 @@ export class UpdateWorkerService {
       this.entity,
       this.selected.id,
       this.patch,
+      this.selected,
     );
     if (!result.ok) return this.failure(result.message, language);
     const entity = noun(this.entity, language);

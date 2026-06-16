@@ -368,11 +368,14 @@ export class ConversationManagerService {
     return applied;
   }
 
-  /** Fills required/optional fields that have a default and are still empty. */
+  /** Fills optional fields that have a default and are still empty. */
   private applyDefaults(userId: string) {
     if (!this.intent) return;
     const ctx = { now: new Date(), userId, fields: this.fields };
     for (const f of WORKERS[this.intent].fields) {
+      // Required fields must be explicitly collected from the user. Defaults are
+      // allowed only for optional backend conveniences.
+      if (f.required) continue;
       if (!f.default) continue;
       const v = this.fields[f.name];
       if (v === undefined || v === null || v === '') {

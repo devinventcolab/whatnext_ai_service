@@ -51,21 +51,53 @@ export class EntityService {
     return { ok: true, value: result.value.length };
   }
 
+  async getById(
+    auth: AuthContext,
+    entity: EntityType,
+    id: string,
+  ): Promise<EntityServiceResult<EntityRecord | undefined>> {
+    const path = detailPath(entity);
+    if (!path) return notConfigured(entity, 'detail');
+    try {
+      const payload = await this.dotnetApi.detailConfigured(auth.token, path, id);
+      const rows = extractRows(payload);
+      const raw =
+        rows[0] ??
+        (isRecord(payload) && !Array.isArray(payload.data) ? payload : undefined);
+      const record = raw ? normalizeEntityRecord(entity, raw) : undefined;
+      vlog('entity', 'detail', {
+        entity,
+        userId: auth.user.id,
+        id,
+        found: Boolean(record),
+      });
+      return { ok: true, value: record };
+    } catch (error) {
+      return {
+        ok: false,
+        reason: 'failed',
+        message: (error as Error).message,
+      };
+    }
+  }
+
   async update(
     auth: AuthContext,
     entity: EntityType,
     id: string,
     patch: Record<string, unknown>,
+    existing?: EntityRecord,
   ): Promise<EntityServiceResult<unknown>> {
     const path = updatePath(entity);
     if (!path) return notConfigured(entity, 'update');
     try {
-      const value = await this.dotnetApi.updateConfigured(
-        auth.token,
-        path,
-        id,
-        patch,
-      );
+      const payload = { ...(existing?.raw ?? {}), ...patch, id };
+      const value =
+        entity === 'task'
+          ? await this.dotnetApi.updateTask(auth.token, id, payload)
+          : entity === 'note'
+            ? await this.dotnetApi.updateNote(auth.token, id, payload)
+          : await this.dotnetApi.updateConfigured(auth.token, path, id, payload);
       vlog('entity', 'update', { entity, userId: auth.user.id, id });
       return { ok: true, value };
     } catch (error) {
@@ -84,6 +116,11 @@ function listPath(entity: EntityType): string | undefined {
   if (entity === 'event') return env.DOTNET_EVENTS_LIST_PATH;
   if (entity === 'worklog') return env.DOTNET_WORKLOGS_LIST_PATH;
   return env.DOTNET_REMINDERS_LIST_PATH;
+}
+
+function detailPath(entity: EntityType): string | undefined {
+  if (entity === 'task') return env.DOTNET_TASKS_DETAIL_PATH;
+  return listPath(entity);
 }
 
 function updatePath(entity: EntityType): string | undefined {

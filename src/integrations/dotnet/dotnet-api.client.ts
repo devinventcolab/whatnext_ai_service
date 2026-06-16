@@ -43,13 +43,17 @@ export class DotnetApiClient {
     return this.request(
       token,
       'POST',
-      env.DOTNET_TASKS_PATH + '/' + id,
-      payload,
+      env.DOTNET_TASKS_UPDATE_PATH,
+      toTaskUpdateFormData(id, payload),
     );
   }
 
   deleteTask(token: string, id: string) {
-    return this.request(token, 'DELETE', env.DOTNET_TASKS_PATH + '/' + id);
+    return this.request(
+      token,
+      'DELETE',
+      env.DOTNET_TASKS_DELETE_PATH + '?id=' + encodeURIComponent(id),
+    );
   }
 
   createEvent(token: string, payload: unknown) {
@@ -81,14 +85,18 @@ export class DotnetApiClient {
   updateNote(token: string, id: string, payload: unknown) {
     return this.request(
       token,
-      'PATCH',
-      env.DOTNET_NOTES_PATH + '/' + id,
-      payload,
+      'POST',
+      env.DOTNET_NOTES_UPDATE_PATH,
+      toNotePayload({ ...asPayload(payload), id }),
     );
   }
 
   deleteNote(token: string, id: string) {
-    return this.request(token, 'DELETE', env.DOTNET_NOTES_PATH + '/' + id);
+    return this.request(
+      token,
+      'DELETE',
+      env.DOTNET_NOTES_DELETE_PATH + '?id=' + encodeURIComponent(id),
+    );
   }
 
   createWorklog(token: string, payload: unknown) {
@@ -117,13 +125,26 @@ export class DotnetApiClient {
     return this.request(token, 'GET', path);
   }
 
+  detailConfigured(token: string, path: string, id: string) {
+    return this.request(
+      token,
+      'GET',
+      addQuery(path, 'id', id),
+    );
+  }
+
   updateConfigured(
     token: string,
     path: string,
     id: string,
     payload: unknown,
   ) {
-    return this.request(token, 'PATCH', path.replace(/\/+$/, '') + '/' + id, payload);
+    return this.request(
+      token,
+      'PATCH',
+      path.replace(/\/+$/, '') + '/' + id,
+      payload,
+    );
   }
 
   private async request<T = unknown>(
@@ -229,6 +250,11 @@ function buildApiUrl(path: string): string {
   return `${base}/${endpoint}`;
 }
 
+function addQuery(path: string, key: string, value: string): string {
+  const separator = path.includes('?') ? '&' : '?';
+  return `${path}${separator}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+}
+
 function asPayload(payload: unknown): Payload {
   return payload && typeof payload === 'object'
     ? (payload as Payload)
@@ -270,16 +296,63 @@ function toTaskPayload(raw: unknown): Payload {
   };
 }
 
+function toTaskUpdateFormData(id: string, raw: unknown): FormData {
+  const data = asPayload(raw);
+  const form = new FormData();
+
+  // Contract from .NET curl: POST /api/user/add-task-details as multipart form.
+  form.append('TaskTypeID', str(data.TaskTypeID ?? data.task_type_id, '1'));
+  form.append('ProfileIds', str(data.ProfileIds ?? data.profile_id, '1'));
+  form.append(
+    'AssignedUserIds',
+    str(data.AssignedUserIds ?? data.assigneeId ?? data.assignee),
+  );
+  form.append('DomainIds', str(data.DomainIds ?? data.domain_id, '1'));
+  form.append('ProjectIds', str(data.ProjectIds ?? data.project_id, '1'));
+  form.append('Objectives', str(data.Objectives ?? data.objective));
+  form.append('Title', str(data.Title ?? data.title));
+  form.append('Priority', str(data.Priority ?? data.priority));
+  form.append('Description', str(data.Description ?? data.description));
+  form.append('Suggested', str(data.Suggested ?? data.suggested));
+  form.append(
+    'DeadlineDate',
+    str(
+      data.DeadlineDate ?? data.dueDate ?? data.deadlineDate,
+      new Date().toISOString(),
+    ),
+  );
+  form.append('TaskFile', str(data.TaskFile ?? data.taskFile));
+  form.append('IsUrgent', String(toUrgent(data.IsUrgent ?? data.urgency)));
+  form.append('ID', str(data.ID ?? data.id, id));
+
+  return form;
+}
+
 function toNotePayload(raw: unknown): Payload {
   const data = asPayload(raw);
   const content = str(
     data.content ?? data.notesText ?? data.text ?? data.transcript,
   );
-  return {
+  const payload: Payload = {
     title: str(data.title, 'Untitled'),
     notesText: content,
     hashtag: toHashtagString(content, data.tag),
   };
+  const id = str(data.id);
+  if (id) payload.id = id;
+  if (data.type !== undefined && data.type !== null && data.type !== '') {
+    payload.type = noteTypeValue(data.type);
+  }
+  return payload;
+}
+
+function noteTypeValue(value: unknown): string | number {
+  if (typeof value === 'number') return value;
+  const text = str(value, 'Reminder');
+  const normalized = text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+  if (normalized === 'Idea') return 'Idea';
+  if (normalized === 'Personal') return 'Personal';
+  return 'Reminder';
 }
 
 function toEventPayload(raw: unknown): Payload {
