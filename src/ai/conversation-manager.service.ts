@@ -136,10 +136,13 @@ export class ConversationManagerService {
       );
     }
 
+    const activeDeleteCommand = this.deleteWorker.isActive()
+      ? coerceActiveDeleteCommand(nlu.command, text)
+      : nlu.command;
     if (
       nlu.command === 'delete' ||
       (this.deleteWorker.isActive() &&
-        ['select', 'confirm'].includes(nlu.command))
+        ['delete', 'select', 'confirm'].includes(activeDeleteCommand))
     ) {
       return this.rawReply(
         await this.deleteWorker.handle({
@@ -147,8 +150,8 @@ export class ConversationManagerService {
           language: this.language,
           entity: nlu.entity === 'all' ? null : nlu.entity,
           query: nlu.query,
-          selection: nlu.selection,
-          command: nlu.command as 'delete' | 'select' | 'confirm',
+          selection: nlu.selection ?? text,
+          command: activeDeleteCommand as 'delete' | 'select' | 'confirm',
         }),
       );
     }
@@ -504,4 +507,21 @@ export class ConversationManagerService {
 function formatValue(value: unknown): string {
   if (Array.isArray(value)) return value.join(', ');
   return String(value);
+}
+
+function coerceActiveDeleteCommand(command: Command, text: string): Command {
+  if (command === 'confirm' || command === 'select' || command === 'delete') {
+    return command;
+  }
+  const clean = text.trim().toLowerCase();
+  if (
+    /^(yes|yeah|yep|ok|okay|sure|confirm|go ahead|do it|delete it|please delete|da|može|moze|potvrdi|obriši|obrisi)\b/i.test(
+      clean,
+    )
+  ) {
+    return 'confirm';
+  }
+  // In an active delete flow, a non-affirmative follow-up is most likely the
+  // user's selection phrase (e.g. "type of testing note").
+  return 'select';
 }

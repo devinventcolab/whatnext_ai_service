@@ -53,6 +53,10 @@ export class DeleteWorkerService {
       return this.confirm(input.auth, input.language);
     }
 
+    if (input.command === 'delete' && this.phase === 'confirming') {
+      return this.confirm(input.auth, input.language);
+    }
+
     if (input.command === 'select') {
       return this.select(input.selection ?? input.query.text ?? '', input.language);
     }
