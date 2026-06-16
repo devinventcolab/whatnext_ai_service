@@ -4,17 +4,33 @@ import { languageManager } from '../i18n/language-manager';
 import { SupportedLanguage } from '../i18n/types';
 import { ApiError } from '../shared/errors/api-error';
 import { vlog } from '../shared/debug';
+import { EntityQuery, EntityType, isEntityType } from './entities';
+import { QueryMode, QueryWorkerService } from './query-worker.service';
 import { ToolExecutorService } from './tool-executor.service';
+import { UpdateWorkerService } from './update-worker.service';
 import { Intent, INTENTS, WORKERS } from './workers';
 
 type Fields = Record<string, unknown>;
 type Phase = 'idle' | 'collecting' | 'confirming';
-type Command = 'provide' | 'confirm' | 'cancel' | 'modify' | 'none';
+type Command =
+  | 'create'
+  | 'provide'
+  | 'query'
+  | 'update'
+  | 'select'
+  | 'confirm'
+  | 'cancel'
+  | 'modify'
+  | 'none';
 
 interface Nlu {
   intent: Intent | null;
+  entity: EntityType | 'all' | null;
   command: Command;
+  queryMode: QueryMode;
+  query: EntityQuery;
   fields: Fields;
+  selection?: string;
   language: SupportedLanguage | null;
   reply?: string;
 }
@@ -41,6 +57,8 @@ export class ConversationManagerService {
     ? new OpenAI({ apiKey: env.OPENAI_API_KEY })
     : undefined;
   private readonly toolExecutor = new ToolExecutorService();
+  private readonly queryWorker = new QueryWorkerService();
+  private readonly updateWorker = new UpdateWorkerService();
 
   // ----- per-session state -----
   private intent: Intent | null = null;
@@ -91,13 +109,57 @@ export class ConversationManagerService {
     if (nlu.command === 'cancel') {
       const had = this.intent;
       this.reset();
+      this.updateWorker.reset();
       return had
         ? this.reply('msg.cancelled', { noun: this.noun(had) })
         : this.reply('msg.cancelledNone');
     }
 
+    const auth = {
+      token: input.token,
+      user: { id: input.userId },
+    };
+
+    if (nlu.command === 'query') {
+      return this.rawReply(
+        await this.queryWorker.handle({
+          auth,
+          language: this.language,
+          entity: nlu.entity,
+          mode: nlu.queryMode,
+          query: nlu.query,
+        }),
+      );
+    }
+
+    if (
+      nlu.command === 'update' ||
+      nlu.command === 'select' ||
+      (this.updateWorker.isActive() &&
+        ['modify', 'confirm', 'provide'].includes(nlu.command))
+    ) {
+      return this.rawReply(
+        await this.updateWorker.handle({
+          auth,
+          language: this.language,
+          entity: nlu.entity === 'all' ? null : nlu.entity,
+          query: nlu.query,
+          patch: nlu.fields,
+          selection: nlu.selection,
+          command:
+            nlu.command === 'provide'
+              ? 'modify'
+              : (nlu.command as 'update' | 'select' | 'modify' | 'confirm'),
+        }),
+      );
+    }
+
     // 2) Intent switch (or first intent). Switching starts a fresh worker.
-    if (nlu.intent && nlu.intent !== this.intent) {
+    if (
+      nlu.intent &&
+      nlu.intent !== this.intent &&
+      ['create', 'provide', 'modify', 'none'].includes(nlu.command)
+    ) {
       const from = this.intent;
       this.switchTo(nlu.intent);
       vlog('worker', 'intent switch', { from, to: nlu.intent });
@@ -171,11 +233,15 @@ export class ConversationManagerService {
       fieldDocs,
       `Current datetime (ISO): ${now}. Resolve relative dates/times like "tomorrow" or "3pm" into ISO 8601 strings.`,
       'Respond with ONLY a JSON object of this exact shape:',
-      `{"intent":"task|note|event|worklog|null","command":"provide|confirm|cancel|modify|none","language":"${langs}","fields":{},"reply":""}`,
+      `{"intent":"task|note|event|worklog|null","entity":"task|note|event|worklog|reminder|all|null","command":"create|provide|query|update|select|confirm|cancel|modify|none","queryMode":"count|list|search|detail","query":{},"fields":{},"selection":"","language":"${langs}","reply":""}`,
       'Rules:',
-      '- "intent": the intent the user is expressing now. If they are only answering a follow-up or changing a field, repeat the CURRENT intent. Set a NEW intent only if they clearly change their mind.',
+      '- "intent": only for CREATE flows (task/note/event/worklog). If the user is creating something or answering create follow-ups, set it. For query/update-only messages, use null unless a create flow is active.',
+      '- "entity": the entity being queried/updated/selected. Use "all" for requests like "all my records". For create-only messages, mirror intent.',
       `- "language": the ISO code of the language the user wrote/spoke in (${langs}). Detect it from THIS message; if it is too short to tell, repeat the current session language.`,
-      '- "command": "confirm" when the user agrees to create (e.g. yes / da / go ahead); "cancel" when they abandon (e.g. cancel / otkaži / never mind); "modify" when they change an already-provided field; "provide" when they give new info; otherwise "none".',
+      '- "command": "create" when the user starts creating a record; "query" for count/list/search/detail requests; "update" for update/reschedule/change existing record requests; "select" when the user chooses from a list; "confirm" when the user agrees to create/update (e.g. yes / da / go ahead); "cancel" when they abandon; "modify" when they change already-provided data; "provide" when they give new info in an active flow; otherwise "none".',
+      '- "queryMode": "count" for how many/count; "list" for show/list; "search" when matching by title/topic/date; "detail" for one record details.',
+      '- "query": include text/status/dateFrom/dateTo/limit filters explicitly requested. For tomorrow/yesterday/today ranges, emit ISO dateFrom/dateTo.',
+      '- "selection": when command is select, copy the selection phrase (e.g. "first one", "project note", or an ID).',
       '- "fields": include ONLY fields explicitly mentioned this turn, using the exact field names above. Use allowed enum values verbatim. "duration" is minutes (number); "estimated_time" is hours (number); dates/times must be ISO 8601 strings. Field VALUES should stay in the user\'s language. Do not invent values; omit unknowns.',
       '- "reply": only set this (in the user\'s language) with a short clarification when the user is off-topic or ambiguous; otherwise use an empty string.',
     ].join('\n');
@@ -202,8 +268,18 @@ export class ConversationManagerService {
       const intent = INTENTS.includes(o.intent as Intent)
         ? (o.intent as Intent)
         : null;
+      const entity =
+        o.entity === 'all'
+          ? 'all'
+          : isEntityType(o.entity)
+            ? o.entity
+            : intent;
       const commands: Command[] = [
+        'create',
         'provide',
+        'query',
+        'update',
+        'select',
         'confirm',
         'cancel',
         'modify',
@@ -214,14 +290,44 @@ export class ConversationManagerService {
         : 'none';
       const fields =
         o.fields && typeof o.fields === 'object' ? (o.fields as Fields) : {};
+      const query =
+        o.query && typeof o.query === 'object'
+          ? (o.query as EntityQuery)
+          : {};
+      const queryModes: QueryMode[] = ['count', 'list', 'search', 'detail'];
+      const queryMode = queryModes.includes(o.queryMode as QueryMode)
+        ? (o.queryMode as QueryMode)
+        : 'list';
+      const selection =
+        typeof o.selection === 'string' && o.selection.trim()
+          ? o.selection
+          : undefined;
       const language = languageManager.isSupported(o.language as string)
         ? (o.language as SupportedLanguage)
         : null;
       const reply =
         typeof o.reply === 'string' && o.reply.trim() ? o.reply : undefined;
-      return { intent, command, fields, language, reply };
+      return {
+        intent,
+        entity,
+        command,
+        queryMode,
+        query,
+        fields,
+        selection,
+        language,
+        reply,
+      };
     } catch {
-      return { intent: this.intent, command: 'none', fields: {}, language: null };
+      return {
+        intent: this.intent,
+        entity: this.intent,
+        command: 'none',
+        queryMode: 'list',
+        query: {},
+        fields: {},
+        language: null,
+      };
     }
   }
 

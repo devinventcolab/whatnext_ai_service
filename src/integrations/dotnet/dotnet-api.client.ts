@@ -42,7 +42,7 @@ export class DotnetApiClient {
   updateTask(token: string, id: string, payload: unknown) {
     return this.request(
       token,
-      'PATCH',
+      'POST',
       env.DOTNET_TASKS_PATH + '/' + id,
       payload,
     );
@@ -111,6 +111,19 @@ export class DotnetApiClient {
 
   deleteWorklog(token: string, id: string) {
     return this.request(token, 'DELETE', env.DOTNET_WORKLOGS_PATH + '/' + id);
+  }
+
+  listConfigured(token: string, path: string) {
+    return this.request(token, 'GET', path);
+  }
+
+  updateConfigured(
+    token: string,
+    path: string,
+    id: string,
+    payload: unknown,
+  ) {
+    return this.request(token, 'PATCH', path.replace(/\/+$/, '') + '/' + id, payload);
   }
 
   private async request<T = unknown>(
