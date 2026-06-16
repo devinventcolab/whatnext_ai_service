@@ -20,6 +20,8 @@ const sr: TranslationTable = {
   'msg.created': 'Gotovo. Kreirano: {noun}.',
   'msg.createFailed':
     'Nisam mogao da kreiram {noun}: {error}. Želite li da pokušamo ponovo ili nešto promenimo?',
+  'msg.invalidEnum':
+    '{field} mora biti jedna od sledećih vrednosti: {values}. Izaberite jednu od njih.',
 
   // ---- intent nouns ----
   'noun.task': 'zadatak',
@@ -143,7 +145,7 @@ const sr: TranslationTable = {
   // ---- event fields ----
   'field.event.eventName.label': 'Tip događaja',
   'field.event.eventName.question':
-    'Koji tip događaja — sastanak, obuka, radionica, konferencija i slično?',
+    'Koji je tip događaja? Izaberite jednu od opcija: Meeting, Kick-off, Training, Workshop, Conference, Presentation, Interview ili Trip.',
   'field.event.eventDate.label': 'Datum i vreme',
   'field.event.eventDate.question': 'Za kada je zakazan?',
   'field.event.duration.label': 'Trajanje (minuti)',

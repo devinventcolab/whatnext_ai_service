@@ -20,6 +20,8 @@ const en: TranslationTable = {
   'msg.created': 'Done. I’ve created the {noun}.',
   'msg.createFailed':
     'I couldn’t create the {noun}: {error}. Want to try again or change something?',
+  'msg.invalidEnum':
+    '{field} must be one of these values only: {values}. Please choose one of them.',
 
   // ---- intent nouns ----
   'noun.task': 'task',
@@ -142,7 +144,7 @@ const en: TranslationTable = {
   // ---- event fields ----
   'field.event.eventName.label': 'Event type',
   'field.event.eventName.question':
-    'What type of event is it — a meeting, training, workshop, conference, and so on?',
+    'What type of event is it? Please choose one of: Meeting, Kick-off, Training, Workshop, Conference, Presentation, Interview, or Trip.',
   'field.event.eventDate.label': 'Date & time',
   'field.event.eventDate.question': 'When is it scheduled for?',
   'field.event.duration.label': 'Duration (minutes)',

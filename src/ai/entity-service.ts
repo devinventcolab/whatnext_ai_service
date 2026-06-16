@@ -97,7 +97,9 @@ export class EntityService {
           ? await this.dotnetApi.updateTask(auth.token, id, payload)
           : entity === 'note'
             ? await this.dotnetApi.updateNote(auth.token, id, payload)
-          : await this.dotnetApi.updateConfigured(auth.token, path, id, payload);
+            : entity === 'event'
+              ? await this.dotnetApi.updateEvent(auth.token, id, payload)
+              : await this.dotnetApi.updateConfigured(auth.token, path, id, payload);
       vlog('entity', 'update', { entity, userId: auth.user.id, id });
       return { ok: true, value };
     } catch (error) {

@@ -67,6 +67,7 @@ export class ConversationManagerService {
   private intent: Intent | null = null;
   private phase: Phase = 'idle';
   private fields: Fields = {};
+  private invalidField?: { name: string; allowed: readonly string[] };
   /** Active session language; persists across resets within the session. */
   private language: SupportedLanguage = languageManager.defaultLanguage;
   private lastActivityAt = Date.now();
@@ -199,6 +200,19 @@ export class ConversationManagerService {
     // 4) Merge any field values mentioned this turn, then auto-fill defaults.
     const provided = this.mergeFields(nlu.fields);
     this.applyDefaults(input.userId);
+    if (this.invalidField && this.intent) {
+      const field = this.invalidField;
+      this.invalidField = undefined;
+      return this.rawReply(
+        languageManager.t('msg.invalidEnum', this.language, {
+          field: languageManager.t(
+            `field.${this.intent}.${field.name}.label`,
+            this.language,
+          ),
+          values: field.allowed.join(', '),
+        }),
+      );
+    }
 
     // 5) Explicit confirmation -> create (only when fully collected).
     if (
@@ -385,6 +399,8 @@ export class ConversationManagerService {
         if (match) {
           this.fields[f.name] = match;
           applied = true;
+        } else {
+          this.invalidField = { name: f.name, allowed: f.enum };
         }
       } else {
         this.fields[f.name] = String(v);
@@ -481,12 +497,14 @@ export class ConversationManagerService {
   private switchTo(intent: Intent) {
     this.intent = intent;
     this.fields = {};
+    this.invalidField = undefined;
     this.phase = 'collecting';
   }
 
   private reset() {
     this.intent = null;
     this.fields = {};
+    this.invalidField = undefined;
     this.phase = 'idle';
   }
 

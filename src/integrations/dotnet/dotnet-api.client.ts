@@ -68,9 +68,9 @@ export class DotnetApiClient {
   updateEvent(token: string, id: string, payload: unknown) {
     return this.request(
       token,
-      'PATCH',
-      env.DOTNET_EVENTS_PATH + '/' + id,
-      payload,
+      'POST',
+      env.DOTNET_EVENTS_UPDATE_PATH,
+      toEventPayload({ ...asPayload(payload), id }),
     );
   }
 
@@ -366,7 +366,7 @@ function noteTypeValue(value: unknown): number {
 function toEventPayload(raw: unknown): Payload {
   const data = asPayload(raw);
   const eventName = str(data.eventName ?? data.title);
-  return {
+  const payload: Payload = {
     eventName,
     eventDate: str(
       data.eventDate ?? data.start_time ?? data.date,
@@ -374,10 +374,20 @@ function toEventPayload(raw: unknown): Payload {
     ),
     isPriority: toPriorityFlag(data.isPriority ?? data.priority),
     title: str(data.title ?? data.eventName),
+    eventDescription: str(
+      data.eventDescription ?? data.description ?? data.event_description,
+    ),
     duration: toEventDuration(data.duration, eventName),
     participants: joinList(data.participants),
     reminders: joinList(data.reminders, '10min_before'),
+    eventType: num(data.eventType ?? data.event_type, 0),
+    eventAddress: str(
+      data.eventAddress ?? data.location ?? data.address ?? data.event_address,
+    ),
   };
+  const id = str(data.ID ?? data.id);
+  if (id) payload.ID = id;
+  return payload;
 }
 
 function toWorklogFormData(raw: unknown): FormData {
