@@ -107,15 +107,13 @@ export const WORKERS: Record<Intent, WorkerSpec> = {
         name: 'type',
         required: false,
         enum: ['Idea', 'Reminder', 'Personal'],
-        default: () => 'Reminder',
       },
-      { name: 'tag', required: false, default: () => 'General' },
+      { name: 'tag', required: false },
       {
         name: 'created_at',
         required: false,
-        default: ({ now }) => now.toISOString(),
       },
-      { name: 'created_by', required: false, default: ({ userId }) => userId },
+      { name: 'created_by', required: false },
     ],
   },
 

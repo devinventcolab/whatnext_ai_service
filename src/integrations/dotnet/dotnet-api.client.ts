@@ -354,13 +354,13 @@ function toNotePayload(raw: unknown): Payload {
   return payload;
 }
 
-function noteTypeValue(value: unknown): string | number {
+function noteTypeValue(value: unknown): number {
   if (typeof value === 'number') return value;
   const text = str(value, 'Reminder');
   const normalized = text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
-  if (normalized === 'Idea') return 'Idea';
-  if (normalized === 'Personal') return 'Personal';
-  return 'Reminder';
+  if (normalized === 'Idea') return 0;
+  if (normalized === 'Personal') return 2;
+  return 1;
 }
 
 function toEventPayload(raw: unknown): Payload {
@@ -474,6 +474,8 @@ function toEstimatedHours(
 function extractErrorMessage(payload: unknown): string | undefined {
   if (!payload || typeof payload !== 'object') return undefined;
   const p = payload as Record<string, unknown>;
+  const validation = validationErrorsMessage(p.errors);
+  if (validation) return validation;
   for (const key of ['message', 'Message', 'error', 'Error', 'title', 'raw']) {
     if (typeof p[key] !== 'string' || !p[key]) continue;
     const value = p[key];
@@ -486,6 +488,20 @@ function extractErrorMessage(payload: unknown): string | undefined {
     return value;
   }
   return undefined;
+}
+
+function validationErrorsMessage(errors: unknown): string | undefined {
+  if (!errors || typeof errors !== 'object') return undefined;
+  const parts: string[] = [];
+  for (const [field, value] of Object.entries(errors as Record<string, unknown>)) {
+    if (Array.isArray(value)) {
+      const message = value.map(String).join(', ');
+      if (message) parts.push(`${field}: ${message}`);
+    } else if (typeof value === 'string' && value) {
+      parts.push(`${field}: ${value}`);
+    }
+  }
+  return parts.length ? parts.join('; ') : undefined;
 }
 
 function looksLikeHtml(value: string): boolean {
