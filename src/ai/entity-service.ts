@@ -108,6 +108,31 @@ export class EntityService {
       };
     }
   }
+
+  async delete(
+    auth: AuthContext,
+    entity: EntityType,
+    id: string,
+  ): Promise<EntityServiceResult<unknown>> {
+    const path = deletePath(entity);
+    if (!path) return notConfigured(entity, 'delete');
+    try {
+      const value =
+        entity === 'task'
+          ? await this.dotnetApi.deleteTask(auth.token, id)
+          : entity === 'note'
+            ? await this.dotnetApi.deleteNote(auth.token, id)
+            : await this.dotnetApi.deleteConfigured(auth.token, path, id);
+      vlog('entity', 'delete', { entity, userId: auth.user.id, id });
+      return { ok: true, value };
+    } catch (error) {
+      return {
+        ok: false,
+        reason: 'failed',
+        message: (error as Error).message,
+      };
+    }
+  }
 }
 
 function listPath(entity: EntityType): string | undefined {
@@ -129,6 +154,14 @@ function updatePath(entity: EntityType): string | undefined {
   if (entity === 'event') return env.DOTNET_EVENTS_UPDATE_PATH;
   if (entity === 'worklog') return env.DOTNET_WORKLOGS_UPDATE_PATH;
   return env.DOTNET_REMINDERS_UPDATE_PATH;
+}
+
+function deletePath(entity: EntityType): string | undefined {
+  if (entity === 'task') return env.DOTNET_TASKS_DELETE_PATH;
+  if (entity === 'note') return env.DOTNET_NOTES_DELETE_PATH;
+  if (entity === 'event') return env.DOTNET_EVENTS_DELETE_PATH;
+  if (entity === 'worklog') return env.DOTNET_WORKLOGS_DELETE_PATH;
+  return env.DOTNET_REMINDERS_DELETE_PATH;
 }
 
 function notConfigured<T>(

@@ -147,6 +147,14 @@ export class DotnetApiClient {
     );
   }
 
+  deleteConfigured(token: string, path: string, id: string) {
+    return this.request(
+      token,
+      'DELETE',
+      addQuery(path, 'id', id),
+    );
+  }
+
   private async request<T = unknown>(
     token: string,
     method: HttpMethod,

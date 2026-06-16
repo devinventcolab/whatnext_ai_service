@@ -4,6 +4,7 @@ import { languageManager } from '../i18n/language-manager';
 import { SupportedLanguage } from '../i18n/types';
 import { ApiError } from '../shared/errors/api-error';
 import { vlog } from '../shared/debug';
+import { DeleteWorkerService } from './delete-worker.service';
 import { EntityQuery, EntityType, isEntityType } from './entities';
 import { QueryMode, QueryWorkerService } from './query-worker.service';
 import { ToolExecutorService } from './tool-executor.service';
@@ -17,6 +18,7 @@ type Command =
   | 'provide'
   | 'query'
   | 'update'
+  | 'delete'
   | 'select'
   | 'confirm'
   | 'cancel'
@@ -59,6 +61,7 @@ export class ConversationManagerService {
   private readonly toolExecutor = new ToolExecutorService();
   private readonly queryWorker = new QueryWorkerService();
   private readonly updateWorker = new UpdateWorkerService();
+  private readonly deleteWorker = new DeleteWorkerService();
 
   // ----- per-session state -----
   private intent: Intent | null = null;
@@ -110,6 +113,7 @@ export class ConversationManagerService {
       const had = this.intent;
       this.reset();
       this.updateWorker.reset();
+      this.deleteWorker.reset();
       return had
         ? this.reply('msg.cancelled', { noun: this.noun(had) })
         : this.reply('msg.cancelledNone');
@@ -133,8 +137,25 @@ export class ConversationManagerService {
     }
 
     if (
+      nlu.command === 'delete' ||
+      (this.deleteWorker.isActive() &&
+        ['select', 'confirm'].includes(nlu.command))
+    ) {
+      return this.rawReply(
+        await this.deleteWorker.handle({
+          auth,
+          language: this.language,
+          entity: nlu.entity === 'all' ? null : nlu.entity,
+          query: nlu.query,
+          selection: nlu.selection,
+          command: nlu.command as 'delete' | 'select' | 'confirm',
+        }),
+      );
+    }
+
+    if (
       nlu.command === 'update' ||
-      nlu.command === 'select' ||
+      (nlu.command === 'select' && this.updateWorker.isActive()) ||
       (this.updateWorker.isActive() &&
         ['modify', 'confirm', 'provide'].includes(nlu.command))
     ) {
@@ -233,12 +254,12 @@ export class ConversationManagerService {
       fieldDocs,
       `Current datetime (ISO): ${now}. Resolve relative dates/times like "tomorrow" or "3pm" into ISO 8601 strings.`,
       'Respond with ONLY a JSON object of this exact shape:',
-      `{"intent":"task|note|event|worklog|null","entity":"task|note|event|worklog|reminder|all|null","command":"create|provide|query|update|select|confirm|cancel|modify|none","queryMode":"count|list|search|detail","query":{},"fields":{},"selection":"","language":"${langs}","reply":""}`,
+      `{"intent":"task|note|event|worklog|null","entity":"task|note|event|worklog|reminder|all|null","command":"create|provide|query|update|delete|select|confirm|cancel|modify|none","queryMode":"count|list|search|detail","query":{},"fields":{},"selection":"","language":"${langs}","reply":""}`,
       'Rules:',
       '- "intent": only for CREATE flows (task/note/event/worklog). If the user is creating something or answering create follow-ups, set it. For query/update-only messages, use null unless a create flow is active.',
       '- "entity": the entity being queried/updated/selected. Use "all" for requests like "all my records". For create-only messages, mirror intent.',
       `- "language": the ISO code of the language the user wrote/spoke in (${langs}). Detect it from THIS message; if it is too short to tell, repeat the current session language.`,
-      '- "command": "create" when the user starts creating a record; "query" for count/list/search/detail requests; "update" for update/reschedule/change existing record requests; "select" when the user chooses from a list; "confirm" when the user agrees to create/update (e.g. yes / da / go ahead); "cancel" when they abandon; "modify" when they change already-provided data; "provide" when they give new info in an active flow; otherwise "none".',
+      '- "command": "create" when the user starts creating a record; "query" for count/list/search/detail requests; "update" for update/reschedule/change existing record requests; "delete" for deleting/removing an existing record; "select" when the user chooses from a list; "confirm" when the user agrees to create/update/delete (e.g. yes / da / go ahead); "cancel" only when they abandon the current flow (e.g. cancel/never mind/stop). IMPORTANT: delete/remove a task/note/event/worklog is "delete", not "cancel". "modify" when they change already-provided data; "provide" when they give new info in an active flow; otherwise "none".',
       '- "queryMode": "count" for how many/count; "list" for show/list; "search" when matching by title/topic/date; "detail" for one record details.',
       '- "query": include text/status/dateFrom/dateTo/limit filters explicitly requested. For tomorrow/yesterday/today ranges, emit ISO dateFrom/dateTo.',
       '- "selection": when command is select, copy the selection phrase (e.g. "first one", "project note", or an ID).',
@@ -279,6 +300,7 @@ export class ConversationManagerService {
         'provide',
         'query',
         'update',
+        'delete',
         'select',
         'confirm',
         'cancel',
