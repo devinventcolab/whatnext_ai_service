@@ -260,6 +260,7 @@ export class ConversationManagerService {
       '- "entity": the entity being queried/updated/selected. Use "all" for requests like "all my records". For create-only messages, mirror intent.',
       `- "language": the ISO code of the language the user wrote/spoke in (${langs}). Detect it from THIS message; if it is too short to tell, repeat the current session language.`,
       '- "command": "create" when the user starts creating a record; "query" for count/list/search/detail requests; "update" for update/reschedule/change existing record requests; "delete" for deleting/removing an existing record; "select" when the user chooses from a list; "confirm" when the user agrees to create/update/delete (e.g. yes / da / go ahead); "cancel" only when they abandon the current flow (e.g. cancel/never mind/stop). IMPORTANT: delete/remove a task/note/event/worklog is "delete", not "cancel". "modify" when they change already-provided data; "provide" when they give new info in an active flow; otherwise "none".',
+      '- If the system state says a delete flow is active and the user names a record/title or says a number, use command "select" and put the phrase in "selection" even if they repeat the word delete.',
       '- "queryMode": "count" for how many/count; "list" for show/list; "search" when matching by title/topic/date; "detail" for one record details.',
       '- "query": include text/status/dateFrom/dateTo/limit filters explicitly requested. For tomorrow/yesterday/today ranges, emit ISO dateFrom/dateTo.',
       '- "selection": when command is select, copy the selection phrase (e.g. "first one", "project note", or an ID).',
@@ -267,7 +268,7 @@ export class ConversationManagerService {
       '- "reply": only set this (in the user\'s language) with a short clarification when the user is off-topic or ambiguous; otherwise use an empty string.',
     ].join('\n');
 
-    const state = `Current intent: ${this.intent ?? 'none'}. Phase: ${this.phase}. Session language: ${this.language}. Collected so far: ${JSON.stringify(this.fields)}.`;
+    const state = `Current intent: ${this.intent ?? 'none'}. Phase: ${this.phase}. Delete flow active: ${this.deleteWorker.isActive()}. Update flow active: ${this.updateWorker.isActive()}. Session language: ${this.language}. Collected so far: ${JSON.stringify(this.fields)}.`;
 
     const res = await this.client!.chat.completions.create({
       model: env.OPENAI_MODEL,

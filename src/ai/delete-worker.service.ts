@@ -57,6 +57,14 @@ export class DeleteWorkerService {
       return this.select(input.selection ?? input.query.text ?? '', input.language);
     }
 
+    // Follow-up phrases like "delete Type of testing note" often arrive as a
+    // new delete command instead of a select command. If we are already showing
+    // choices, treat the phrase as a selection against the existing matches.
+    if (input.command === 'delete' && this.phase === 'selecting') {
+      const selected = this.select(input.selection ?? input.query.text ?? '', input.language);
+      if (this.selected) return selected;
+    }
+
     if (input.entity && (!this.entity || input.entity !== this.entity)) {
       this.entity = input.entity;
       this.matches = [];
@@ -150,16 +158,31 @@ function resolveSelection(
   records: readonly EntityRecord[],
   text: string,
 ): EntityRecord | undefined {
-  const clean = text.trim().toLowerCase();
+  const clean = normalizeSelectionText(text);
   const index = parseIndex(clean);
   if (index !== undefined) return records[index];
   return records.find((record) => {
+    const title = normalizeSelectionText(record.title);
+    const summary = normalizeSelectionText(record.summary ?? '');
     return (
-      record.id.toLowerCase() === clean ||
-      record.title.toLowerCase().includes(clean) ||
-      clean.includes(record.title.toLowerCase())
+      normalizeSelectionText(record.id) === clean ||
+      title.includes(clean) ||
+      clean.includes(title) ||
+      (summary && (summary.includes(clean) || clean.includes(summary)))
     );
   });
+}
+
+function normalizeSelectionText(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+    .replace(
+      /\b(should|i|delete|remove|erase|note|task|event|worklog|the|one|please|would|like|to|my)\b/gi,
+      ' ',
+    )
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function parseIndex(text: string): number | undefined {
