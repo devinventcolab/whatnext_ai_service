@@ -123,7 +123,7 @@ export const WORKERS: Record<Intent, WorkerSpec> = {
     createTool: 'createEvent',
     fields: [
       {
-        name: 'eventType',
+        name: 'eventName',
         required: true,
         enum: [
           'Meeting',
@@ -137,10 +137,10 @@ export const WORKERS: Record<Intent, WorkerSpec> = {
         ],
       },
       { name: 'title', required: true },
-      { name: 'description', required: false },
       { name: 'eventDate', required: true },
       { name: 'duration', required: true, type: 'number', default: () => 60 },
       { name: 'participants', required: true, type: 'array' },
+      { name: 'isPriority', required: false },
       { name: 'location', required: false },
       {
         name: 'reminders',

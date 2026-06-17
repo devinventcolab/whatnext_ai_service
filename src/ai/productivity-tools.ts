@@ -67,9 +67,11 @@ export const toolSchemas = {
   createEvent: z
     .object({
       eventName,
+      title: z.string().optional(),
       eventDate: z.string(),
       duration: z.number().int().positive(),
       participants: z.array(z.string()).optional(),
+      isPriority: z.union([z.boolean(), z.number(), z.string()]).optional(),
       location: z.string().optional(),
       description: z.string().optional(),
       reminders: z.array(z.string()).optional(),
@@ -79,9 +81,11 @@ export const toolSchemas = {
     .object({
       id: z.string().min(1),
       eventName: eventName.optional(),
+      title: z.string().optional(),
       eventDate: z.string().optional(),
       duration: z.number().int().positive().optional(),
       participants: z.array(z.string()).optional(),
+      isPriority: z.union([z.boolean(), z.number(), z.string()]).optional(),
       location: z.string().optional(),
       description: z.string().optional(),
       reminders: z.array(z.string()).optional(),
