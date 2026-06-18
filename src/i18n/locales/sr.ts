@@ -16,12 +16,16 @@ const sr: TranslationTable = {
   'msg.great': 'Odlično.',
   'msg.updated': 'Ažurirano.',
   'msg.summaryHeader': 'Evo podataka koje imam ({noun}):',
-  'msg.confirmCreate': 'Da li želite da kreiram ovaj unos ({noun})?',
+  'msg.confirmCreate':
+    'Da li želite da kreiram ovaj unos ({noun}) ili biste prvo želeli da izmenite neko polje? Recite „kreiraj“ za potvrdu ili mi recite koje polje da izmenim.',
   'msg.created': 'Gotovo. Kreirano: {noun}.',
   'msg.createFailed':
     'Nisam mogao da kreiram {noun}: {error}. Želite li da pokušamo ponovo ili nešto promenimo?',
   'msg.invalidEnum':
     '{field} mora biti jedna od sledećih vrednosti: {values}. Izaberite jednu od njih.',
+  'msg.notSet': 'Nije postavljeno',
+  'msg.closing':
+    'Nema na čemu! Prijatan dan. Samo recite kad god vam ponovo zatrebam.',
 
   // ---- intent nouns ----
   'noun.task': 'zadatak',

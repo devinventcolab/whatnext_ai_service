@@ -16,12 +16,16 @@ const en: TranslationTable = {
   'msg.great': 'Great.',
   'msg.updated': 'Updated.',
   'msg.summaryHeader': 'Here’s the {noun} I have:',
-  'msg.confirmCreate': 'Should I create this {noun}?',
+  'msg.confirmCreate':
+    'Should I create this {noun}, or would you like to change any field first? Say "create" to confirm, or tell me which field to update.',
   'msg.created': 'Done. I’ve created the {noun}.',
   'msg.createFailed':
     'I couldn’t create the {noun}: {error}. Want to try again or change something?',
   'msg.invalidEnum':
     '{field} must be one of these values only: {values}. Please choose one of them.',
+  'msg.notSet': 'Not set',
+  'msg.closing':
+    'You’re welcome! Have a great day. Just say the word whenever you need me again.',
 
   // ---- intent nouns ----
   'noun.task': 'task',
@@ -99,7 +103,7 @@ const en: TranslationTable = {
 
   // ---- task fields ----
   'field.task.title.label': 'Title',
-  'field.task.title.question': 'What should the task be called?',
+  'field.task.title.question': 'What should the task title be?',
   'field.task.priority.label': 'Priority',
   'field.task.priority.question':
     'What priority — low, standard, high, or extreme?',
@@ -142,11 +146,11 @@ const en: TranslationTable = {
   'field.note.created_by.question': 'Who created it?',
 
   // ---- event fields ----
+  'field.event.title.label': 'Title',
+  'field.event.title.question': 'What should the event title be?',
   'field.event.eventName.label': 'Event type',
   'field.event.eventName.question':
     'What type of event is it? Please choose one of: Meeting, Kick-off, Training, Workshop, Conference, Presentation, Interview, or Trip.',
-  'field.event.title.label': 'Title',
-  'field.event.title.question': 'What should the event title be?',
   'field.event.eventDate.label': 'Date & time',
   'field.event.eventDate.question': 'When is it scheduled for?',
   'field.event.duration.label': 'Duration (minutes)',
