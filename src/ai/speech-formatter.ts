@@ -7,30 +7,44 @@ const UUID =
 const ISO_DATE =
   /\b\d{4}-\d{2}-\d{2}(?:[T\s]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:?\d{2})?)?\b/g;
 
+/**
+ * Turns machine values (ISO dates, timestamps, UUIDs, enums) into natural,
+ * conversational text so the text-to-speech engine speaks them like a human
+ * instead of reading them character by character (e.g. "two zero two six dash
+ * zero six dash one nine"). For English, dates are spoken as
+ * "Nineteenth June, Twenty Twenty-Six".
+ */
 export class SpeechFormatter {
   formatDateTime(value: unknown, language: SupportedLanguage): string {
     if (!value) return '';
-    const date = new Date(String(value));
+    const raw = String(value).trim();
+    // A bare "YYYY-MM-DD" is parsed by JS as UTC midnight, which shifts the day
+    // and adds a phantom time in non-UTC zones. Parse it as a local calendar
+    // date instead so it stays date-only.
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(raw);
+    const date = dateOnly ? parseLocalDate(raw) : new Date(raw);
     if (Number.isNaN(date.getTime())) return String(value);
 
+    const timed = !dateOnly && hasTime(date);
+    const time = timed ? this.formatTime(date, language) : '';
+
     if (isSameDay(date, daysFromNow(0))) {
-      return languageManager.t('date.todayAt', language, {
-        time: this.formatTime(date, language),
-      });
+      return timed
+        ? languageManager.t('date.todayAt', language, { time })
+        : languageManager.t('date.today', language);
     }
     if (isSameDay(date, daysFromNow(1))) {
-      return languageManager.t('date.tomorrowAt', language, {
-        time: this.formatTime(date, language),
-      });
+      return timed
+        ? languageManager.t('date.tomorrowAt', language, { time })
+        : languageManager.t('date.tomorrow', language);
     }
 
-    return new Intl.DateTimeFormat(locale(language), {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-      hour: hasTime(date) ? 'numeric' : undefined,
-      minute: hasTime(date) ? '2-digit' : undefined,
-    }).format(date);
+    const datePart = this.formatDate(date, language);
+    if (!timed) return datePart;
+    return languageManager.t('date.dateAtTime', language, {
+      date: datePart,
+      time,
+    });
   }
 
   formatDuration(minutes: unknown, language: SupportedLanguage): string {
@@ -75,7 +89,14 @@ export class SpeechFormatter {
     return parts.join(', ');
   }
 
+  /**
+   * Final normalization pass over a complete reply, applied right before
+   * text-to-speech. Replaces every ISO date/timestamp with natural spoken text
+   * and hides internal UUIDs. Safe to call on already-formatted text (only raw
+   * machine tokens are touched).
+   */
   sanitizeForSpeech(text: string, language: SupportedLanguage): string {
+    if (!text) return text;
     ISO_DATE.lastIndex = 0;
     const withDates = text.replace(ISO_DATE, (match) =>
       this.formatDateTime(match, language),
@@ -84,7 +105,24 @@ export class SpeechFormatter {
     return this.hideInternalIds(withDates, language);
   }
 
+  private formatDate(date: Date, language: SupportedLanguage): string {
+    if (language === 'en') {
+      const day = ordinalDay(date.getDate());
+      const month = MONTHS_EN[date.getMonth()];
+      const year = yearToWords(date.getFullYear());
+      return `${day} ${month}, ${year}`;
+    }
+    return new Intl.DateTimeFormat(locale(language), {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(date);
+  }
+
   private formatTime(date: Date, language: SupportedLanguage): string {
+    if (language === 'en') {
+      return timeToWords(date);
+    }
     return new Intl.DateTimeFormat(locale(language), {
       hour: 'numeric',
       minute: '2-digit',
@@ -107,6 +145,11 @@ function locale(language: SupportedLanguage): string {
   return language === 'sr' ? 'sr-Latn-RS' : 'en-US';
 }
 
+function parseLocalDate(value: string): Date {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
 function daysFromNow(days: number): Date {
   const date = new Date();
   date.setDate(date.getDate() + days);
@@ -127,4 +170,135 @@ function hasTime(date: Date): boolean {
     date.getMinutes() !== 0 ||
     date.getSeconds() !== 0
   );
+}
+
+// ---------------------------------------------------------------------------
+// English number-to-words helpers (for natural, conversational speech).
+// ---------------------------------------------------------------------------
+
+const MONTHS_EN = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
+const ONES = [
+  '',
+  'One',
+  'Two',
+  'Three',
+  'Four',
+  'Five',
+  'Six',
+  'Seven',
+  'Eight',
+  'Nine',
+];
+const TEENS = [
+  'Ten',
+  'Eleven',
+  'Twelve',
+  'Thirteen',
+  'Fourteen',
+  'Fifteen',
+  'Sixteen',
+  'Seventeen',
+  'Eighteen',
+  'Nineteen',
+];
+const TENS = [
+  '',
+  '',
+  'Twenty',
+  'Thirty',
+  'Forty',
+  'Fifty',
+  'Sixty',
+  'Seventy',
+  'Eighty',
+  'Ninety',
+];
+
+const ORDINAL_ONES = [
+  '',
+  'First',
+  'Second',
+  'Third',
+  'Fourth',
+  'Fifth',
+  'Sixth',
+  'Seventh',
+  'Eighth',
+  'Ninth',
+];
+const ORDINAL_TEENS = [
+  'Tenth',
+  'Eleventh',
+  'Twelfth',
+  'Thirteenth',
+  'Fourteenth',
+  'Fifteenth',
+  'Sixteenth',
+  'Seventeenth',
+  'Eighteenth',
+  'Nineteenth',
+];
+
+/** 0-99 in title-cased words, e.g. 26 -> "Twenty-Six". */
+function twoDigitWords(n: number): string {
+  if (n <= 0) return 'Zero';
+  if (n < 10) return ONES[n];
+  if (n < 20) return TEENS[n - 10];
+  const tens = TENS[Math.floor(n / 10)];
+  const ones = n % 10;
+  return ones ? `${tens}-${ONES[ones]}` : tens;
+}
+
+/** Day of month as an ordinal word, e.g. 19 -> "Nineteenth", 25 -> "Twenty-Fifth". */
+function ordinalDay(day: number): string {
+  if (day <= 0 || day > 31) return String(day);
+  if (day < 10) return ORDINAL_ONES[day];
+  if (day < 20) return ORDINAL_TEENS[day - 10];
+  const tens = Math.floor(day / 10);
+  const ones = day % 10;
+  const tensWord = tens === 2 ? 'Twenty' : 'Thirty';
+  if (ones === 0) return tens === 2 ? 'Twentieth' : 'Thirtieth';
+  return `${tensWord}-${ORDINAL_ONES[ones]}`;
+}
+
+/** Four-digit year spoken naturally, e.g. 2026 -> "Twenty Twenty-Six". */
+function yearToWords(year: number): string {
+  if (year < 1000 || year > 9999) return String(year);
+  const high = Math.floor(year / 100);
+  const low = year % 100;
+  // 2000-2009 read as "Two Thousand (X)".
+  if (year >= 2000 && year <= 2009) {
+    return low === 0 ? 'Two Thousand' : `Two Thousand ${twoDigitWords(low)}`;
+  }
+  if (low === 0) return `${twoDigitWords(high)} Hundred`;
+  if (low < 10) return `${twoDigitWords(high)} Oh ${twoDigitWords(low)}`;
+  return `${twoDigitWords(high)} ${twoDigitWords(low)}`;
+}
+
+/** Clock time spoken naturally, e.g. 09:00 -> "Nine AM", 14:30 -> "Two Thirty PM". */
+function timeToWords(date: Date): string {
+  const minutes = date.getMinutes();
+  const meridiem = date.getHours() < 12 ? 'AM' : 'PM';
+  let hour = date.getHours() % 12;
+  if (hour === 0) hour = 12;
+  const hourWord = twoDigitWords(hour);
+  if (minutes === 0) return `${hourWord} ${meridiem}`;
+  if (minutes < 10) {
+    return `${hourWord} Oh ${twoDigitWords(minutes)} ${meridiem}`;
+  }
+  return `${hourWord} ${twoDigitWords(minutes)} ${meridiem}`;
 }

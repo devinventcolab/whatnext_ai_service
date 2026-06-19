@@ -1,5 +1,6 @@
 import { Socket } from 'socket.io';
 import { ConversationManagerService } from '../ai/conversation-manager.service';
+import { SpeechFormatter } from '../ai/speech-formatter';
 import { AuthContext } from '../auth/auth.types';
 import { vlog } from '../shared/debug';
 import { DeepgramSttService } from '../speech/deepgram-stt.service';
@@ -18,6 +19,7 @@ export class VoiceSession {
   private readonly stt = new DeepgramSttService();
   private readonly tts = new TtsService();
   private readonly assistant = new ConversationManagerService();
+  private readonly speechFormatter = new SpeechFormatter();
 
   /** Finalized transcript segments accumulated during the current utterance. */
   private finals: string[] = [];
@@ -188,9 +190,18 @@ export class VoiceSession {
         language: response.language,
         tools: response.toolResults.map((t) => t.toolName),
       });
+      // Show the reply exactly as built (original wording/dates) to the client.
       this.socket.emit('assistant:text', response);
 
-      const audio = await this.tts.synthesize(response.text, response.language);
+      // Normalize machine values (ISO dates, timestamps, UUIDs) into natural,
+      // conversational speech ONLY for the spoken audio, so dates aren't read
+      // out character by character. Applied centrally so it covers every intent
+      // and response (tasks, events, notes, reminders, worklogs, queries, …).
+      const speechText = this.speechFormatter.sanitizeForSpeech(
+        response.text,
+        response.language,
+      );
+      const audio = await this.tts.synthesize(speechText, response.language);
       if (audio.byteLength) {
         vlog('session', 'assistant:audio', `${audio.byteLength} bytes`);
         this.socket.emit('assistant:audio', audio);
