@@ -117,7 +117,7 @@ const en: TranslationTable = {
   'field.task.estimated_time.question':
     'How many hours do you estimate it will take?',
   'field.task.assignee.label': 'Assignee',
-  'field.task.assignee.question': 'Who is responsible for it?',
+  'field.task.assignee.question': 'Who is assigned to it?',
   'field.task.startDate.label': 'Start date',
   'field.task.startDate.question': 'When should it start?',
   'field.task.dueDate.label': 'Due date',
