@@ -305,6 +305,7 @@ export class ConversationManagerService {
       '- "query": include text/status/dateFrom/dateTo/limit filters explicitly requested. For tomorrow/yesterday/today ranges, emit ISO dateFrom/dateTo.',
       '- "selection": when command is select, copy the selection phrase (e.g. "first one", "project note", or an ID).',
       '- "fields": include ONLY fields explicitly mentioned this turn, using the exact field names above. Use allowed enum values verbatim. "duration" is minutes (number); "estimated_time" is hours (number); dates/times must be ISO 8601 strings. Field VALUES should stay in the user\'s language. Do not invent values; omit unknowns.',
+      '- NEVER infer or default the task "assignee". Only set "assignee" when the user explicitly names who is responsible (e.g. "assign it to John", "give it to Sara"). Do NOT set it to "me", the current user, or anyone the user did not name — leave it out so the assistant can ask.',
       '- "reply": only set this (in the user\'s language) with a short clarification when the user is off-topic or ambiguous; otherwise use an empty string.',
     ].join('\n');
 

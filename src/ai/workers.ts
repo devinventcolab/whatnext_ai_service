@@ -40,7 +40,6 @@ export interface WorkerSpec {
 }
 
 const TASK_DEFAULTS = {
-  assignee: 'Me',
   task_type: 'Regular task',
   profile: 'Business',
   domain: 'General',
@@ -78,7 +77,7 @@ export const WORKERS: Record<Intent, WorkerSpec> = {
         type: 'number',
         default: () => 1,
       },
-      { name: 'assignee', required: true, default: () => TASK_DEFAULTS.assignee },
+      { name: 'assignee', required: true },
       {
         name: 'startDate',
         required: false,
