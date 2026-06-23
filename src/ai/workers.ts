@@ -83,7 +83,12 @@ export const WORKERS: Record<Intent, WorkerSpec> = {
         name: 'estimated_time',
         required: false,
         type: 'number',
-        default: () => 1,
+        default: ({ now, fields }) =>
+          estimateTaskHours(
+            fields.startDate,
+            fields.dueDate,
+            isoLocal(atNine(now, 0)),
+          ),
       },
       { name: 'assignee', required: true },
       {
@@ -196,4 +201,18 @@ function atNine(now: Date, addDays: number): Date {
   d.setDate(d.getDate() + addDays);
   d.setHours(9, 0, 0, 0);
   return d;
+}
+
+function estimateTaskHours(
+  startDate: unknown,
+  dueDate: unknown,
+  fallbackStartDate: string,
+): number | undefined {
+  const start = new Date(String(startDate ?? fallbackStartDate)).getTime();
+  const due = new Date(String(dueDate ?? '')).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(due) || due <= start) {
+    return undefined;
+  }
+  const hours = (due - start) / (1000 * 60 * 60);
+  return Math.max(0.1, Math.round(hours * 10) / 10);
 }
