@@ -16,7 +16,7 @@ const CYRILLIC = /[\u0400-\u04FF]/;
 const SERBIAN_DIACRITICS = /[čćžšđ]/i;
 // Common Serbian command/keywords (Latin), used as a lightweight fallback.
 const SERBIAN_WORDS =
-  /\b(kreiraj|napravi|dodaj|obriši|obrisi|izmeni|ažuriraj|azuriraj|zadatak|beleška|beleska|događaj|dogadjaj|sastanak|podseti|podsetnik|sutra|danas|juče|juce|hvala|molim|želim|zelim|napiši|napisi|prikaži|prikazi|koliko)\b/i;
+  /\b(kreiraj|napravi|dodaj|obriši|obrisi|izmeni|ažuriraj|azuriraj|zadatak|beleška|beleska|događaj|dogadjaj|sastanak|podseti|podsetnik|sutra|danas|juče|juce|hvala|molim|želim|zelim|napiši|napisi|prikaži|prikazi|koliko|zdravo|ćao|cao|ciao)\b/i;
 
 /**
  * Centralized language service: detection, normalization, and translation.
@@ -78,8 +78,7 @@ export class LanguageManager {
     vars?: TranslationVars,
   ): string {
     const table = LOCALES[lang] ?? LOCALES[this.defaultLanguage];
-    let value =
-      table[key] ?? LOCALES[this.defaultLanguage][key] ?? key;
+    let value = table[key] ?? LOCALES[this.defaultLanguage][key] ?? key;
     if (vars) {
       for (const [name, raw] of Object.entries(vars)) {
         value = value.split(`{${name}}`).join(String(raw));

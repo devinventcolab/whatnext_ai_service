@@ -58,14 +58,20 @@ export class DeleteWorkerService {
     }
 
     if (input.command === 'select') {
-      return this.select(input.selection ?? input.query.text ?? '', input.language);
+      return this.select(
+        input.selection ?? input.query.text ?? '',
+        input.language,
+      );
     }
 
     // Follow-up phrases like "delete Type of testing note" often arrive as a
     // new delete command instead of a select command. If we are already showing
     // choices, treat the phrase as a selection against the existing matches.
     if (input.command === 'delete' && this.phase === 'selecting') {
-      const selected = this.select(input.selection ?? input.query.text ?? '', input.language);
+      const selected = this.select(
+        input.selection ?? input.query.text ?? '',
+        input.language,
+      );
       if (this.selected) return selected;
     }
 
@@ -76,9 +82,14 @@ export class DeleteWorkerService {
       this.phase = 'idle';
     }
 
-    if (!this.entity) return languageManager.t('delete.whichEntity', input.language);
+    if (!this.entity)
+      return languageManager.t('delete.whichEntity', input.language);
 
-    const listed = await this.entities.list(input.auth, this.entity, input.query);
+    const listed = await this.entities.list(
+      input.auth,
+      this.entity,
+      input.query,
+    );
     if (!listed.ok) return this.failure(listed.message, input.language);
     this.matches = listed.value;
 
@@ -114,9 +125,14 @@ export class DeleteWorkerService {
     if (!this.entity || !this.selected) {
       return languageManager.t('delete.nothingToConfirm', language);
     }
-    if (!this.selected.id) return languageManager.t('delete.missingId', language);
+    if (!this.selected.id)
+      return languageManager.t('delete.missingId', language);
 
-    const result = await this.entities.delete(auth, this.entity, this.selected.id);
+    const result = await this.entities.delete(
+      auth,
+      this.entity,
+      this.selected.id,
+    );
     if (!result.ok) return this.failure(result.message, language);
 
     const entity = noun(this.entity, language);

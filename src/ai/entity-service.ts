@@ -30,7 +30,11 @@ export class EntityService {
         .map((row) => normalizeEntityRecord(entity, row))
         .filter((record) => recordMatches(record, query))
         .slice(0, query.limit ?? 20);
-      vlog('entity', 'list', { entity, userId: auth.user.id, count: records.length });
+      vlog('entity', 'list', {
+        entity,
+        userId: auth.user.id,
+        count: records.length,
+      });
       return { ok: true, value: records };
     } catch (error) {
       return {
@@ -59,11 +63,17 @@ export class EntityService {
     const path = detailPath(entity);
     if (!path) return notConfigured(entity, 'detail');
     try {
-      const payload = await this.dotnetApi.detailConfigured(auth.token, path, id);
+      const payload = await this.dotnetApi.detailConfigured(
+        auth.token,
+        path,
+        id,
+      );
       const rows = extractRows(payload);
       const raw =
         rows[0] ??
-        (isRecord(payload) && !Array.isArray(payload.data) ? payload : undefined);
+        (isRecord(payload) && !Array.isArray(payload.data)
+          ? payload
+          : undefined);
       const record = raw ? normalizeEntityRecord(entity, raw) : undefined;
       vlog('entity', 'detail', {
         entity,
@@ -99,7 +109,12 @@ export class EntityService {
             ? await this.dotnetApi.updateNote(auth.token, id, payload)
             : entity === 'event'
               ? await this.dotnetApi.updateEvent(auth.token, id, payload)
-              : await this.dotnetApi.updateConfigured(auth.token, path, id, payload);
+              : await this.dotnetApi.updateConfigured(
+                  auth.token,
+                  path,
+                  id,
+                  payload,
+                );
       vlog('entity', 'update', { entity, userId: auth.user.id, id });
       return { ok: true, value };
     } catch (error) {

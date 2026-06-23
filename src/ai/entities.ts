@@ -133,7 +133,10 @@ export function normalizeEntityRecord(
   };
 }
 
-export function recordMatches(record: EntityRecord, query: EntityQuery): boolean {
+export function recordMatches(
+  record: EntityRecord,
+  query: EntityQuery,
+): boolean {
   const text = query.text?.trim().toLowerCase();
   if (text) {
     const haystack = [
@@ -150,12 +153,14 @@ export function recordMatches(record: EntityRecord, query: EntityQuery): boolean
     if (!haystack.includes(text)) return false;
   }
   if (query.status && record.status) {
-    if (record.status.toLowerCase() !== query.status.toLowerCase()) return false;
+    if (record.status.toLowerCase() !== query.status.toLowerCase())
+      return false;
   }
   if (query.dateFrom || query.dateTo) {
     const time = record.date ? new Date(record.date).getTime() : NaN;
     if (Number.isNaN(time)) return false;
-    if (query.dateFrom && time < new Date(query.dateFrom).getTime()) return false;
+    if (query.dateFrom && time < new Date(query.dateFrom).getTime())
+      return false;
     if (query.dateTo && time > new Date(query.dateTo).getTime()) return false;
   }
   return true;

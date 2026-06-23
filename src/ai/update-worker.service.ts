@@ -57,7 +57,10 @@ export class UpdateWorkerService {
     }
 
     if (input.command === 'select') {
-      return this.select(input.selection ?? input.query.text ?? '', input.language);
+      return this.select(
+        input.selection ?? input.query.text ?? '',
+        input.language,
+      );
     }
 
     if (input.command === 'modify' && this.selected) {
@@ -177,7 +180,10 @@ export class UpdateWorkerService {
   private confirmation(language: SupportedLanguage): string {
     const changes = Object.entries(this.patch)
       .map(([key, value]) => {
-        const label = languageManager.t(`field.${this.entity}.${key}.label`, language);
+        const label = languageManager.t(
+          `field.${this.entity}.${key}.label`,
+          language,
+        );
         return `- ${label}: ${this.formatter.formatValue(value, language)}`;
       })
       .join('\n');

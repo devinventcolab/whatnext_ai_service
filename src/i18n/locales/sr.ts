@@ -162,7 +162,8 @@ const sr: TranslationTable = {
   'field.event.participants.label': 'Učesnici',
   'field.event.participants.question': 'Koga treba pozvati?',
   'field.event.isPriority.label': 'Prioritet',
-  'field.event.isPriority.question': 'Da li događaj treba označiti kao prioritetan?',
+  'field.event.isPriority.question':
+    'Da li događaj treba označiti kao prioritetan?',
   'field.event.location.label': 'Lokacija',
   'field.event.location.question': 'Gde se održava?',
   'field.event.reminders.label': 'Podsetnici',

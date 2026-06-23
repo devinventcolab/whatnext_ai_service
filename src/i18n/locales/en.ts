@@ -65,7 +65,8 @@ const en: TranslationTable = {
     '{entity} updates are not connected yet. Please provide the endpoint when it is available.',
   'update.failed': 'I could not update it: {error}',
   'update.nothingToConfirm': 'There is no update ready to confirm yet.',
-  'update.missingId': 'I found the record, but it does not include an ID I can update.',
+  'update.missingId':
+    'I found the record, but it does not include an ID I can update.',
   'delete.whichEntity': 'What would you like to delete?',
   'delete.cancelled': 'Okay, I cancelled the delete request.',
   'delete.noMatches': 'I could not find matching {entity}.',
@@ -79,7 +80,8 @@ const en: TranslationTable = {
     '{entity} deletion is not connected yet. Please provide the endpoint when it is available.',
   'delete.failed': 'I could not delete it: {error}',
   'delete.nothingToConfirm': 'There is no delete request ready to confirm yet.',
-  'delete.missingId': 'I found the record, but it does not include an ID I can delete.',
+  'delete.missingId':
+    'I found the record, but it does not include an ID I can delete.',
   'date.today': 'today',
   'date.tomorrow': 'tomorrow',
   'date.todayAt': 'today at {time}',

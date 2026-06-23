@@ -41,7 +41,8 @@ export class QueryWorkerService {
     const id = detailId(input.query);
     if (input.mode === 'detail' && id) {
       const detail = await this.entities.getById(input.auth, entity, id);
-      if (!detail.ok) return this.failure(detail.message, entity, input.language);
+      if (!detail.ok)
+        return this.failure(detail.message, entity, input.language);
       if (!detail.value) {
         return languageManager.t('query.noResults', input.language, {
           entity: plural(entity, input.language),
@@ -68,7 +69,8 @@ export class QueryWorkerService {
     for (const entity of targets) {
       const result = await this.entities.count(input.auth, entity, input.query);
       if (!result.ok) {
-        if (input.entity === 'all' && result.reason === 'not_configured') continue;
+        if (input.entity === 'all' && result.reason === 'not_configured')
+          continue;
         return this.failure(result.message, entity, input.language);
       }
       lines.push(
@@ -81,7 +83,11 @@ export class QueryWorkerService {
     if (!lines.length) {
       return languageManager.t('query.noneConfigured', input.language);
     }
-    return languageManager.t('query.countHeader', input.language) + '\n' + lines.join('\n');
+    return (
+      languageManager.t('query.countHeader', input.language) +
+      '\n' +
+      lines.join('\n')
+    );
   }
 
   private listRecords(

@@ -94,6 +94,20 @@ export class ConversationManagerService {
     }
     this.lastActivityAt = Date.now();
 
+    // Serbian greetings: Zdravo / Ćao / Cao / Ciao should respond in Serbian but NOT switch the session language.
+    if (isSerbianGreeting(text)) {
+      vlog('worker', 'Serbian greeting fast-path triggered');
+      const greetingText = text.trim().replace(/[.!?,]+$/g, '');
+      const capitalizedGreeting =
+        greetingText.charAt(0).toUpperCase() + greetingText.slice(1);
+      const body = languageManager.t('msg.chooseIntent', 'sr');
+      return {
+        text: `${capitalizedGreeting}! ${body}`,
+        toolResults: [],
+        language: 'sr',
+      };
+    }
+
     // Fast path: a plain closing/thank-you ("thanks", "ok thank you", "bye",
     // "hvala", "doviđenja") ends the conversation politely. Handled before the
     // NLU call so it is reliable even if the model is unavailable/rate-limited.
@@ -332,11 +346,7 @@ export class ConversationManagerService {
         ? (o.intent as Intent)
         : null;
       const entity =
-        o.entity === 'all'
-          ? 'all'
-          : isEntityType(o.entity)
-            ? o.entity
-            : intent;
+        o.entity === 'all' ? 'all' : isEntityType(o.entity) ? o.entity : intent;
       const commands: Command[] = [
         'create',
         'provide',
@@ -356,9 +366,7 @@ export class ConversationManagerService {
       const fields =
         o.fields && typeof o.fields === 'object' ? (o.fields as Fields) : {};
       const query =
-        o.query && typeof o.query === 'object'
-          ? (o.query as EntityQuery)
-          : {};
+        o.query && typeof o.query === 'object' ? (o.query as EntityQuery) : {};
       const queryModes: QueryMode[] = ['count', 'list', 'search', 'detail'];
       const queryMode = queryModes.includes(o.queryMode as QueryMode)
         ? (o.queryMode as QueryMode)
@@ -580,7 +588,7 @@ function isClosingPhrase(text: string): boolean {
     // Serbian: thanks (optionally prefixed with ok)
     /^(ok(ej)?)?\s*((puno |mnogo |veliko )?hvala( ti| vam| puno| mnogo)?)$/,
     // Serbian: goodbye / see you
-    /^(doviđenja|dovidjenja|prijatno|čujemo se|cujemo se|zdravo)$/,
+    /^(doviđenja|dovidjenja|prijatno|čujemo se|cujemo se)$/,
     // Serbian: that's all / we're done
     /^(to je sve|nema više|nema vise|gotovo|završili smo|zavrsili smo)$/,
   ];
@@ -602,4 +610,20 @@ function coerceActiveDeleteCommand(command: Command, text: string): Command {
   // In an active delete flow, a non-affirmative follow-up is most likely the
   // user's selection phrase (e.g. "type of testing note").
   return 'select';
+}
+
+/**
+ * True when the whole message is just a Serbian greeting (like "Zdravo", "Ćao", "Cao", "Ciao",
+ * or combinations of these like "Zdravo, ćao").
+ */
+function isSerbianGreeting(text: string): boolean {
+  const clean = text
+    .trim()
+    .toLowerCase()
+    .replace(/[.!?,]+$/g, '')
+    .trim();
+  if (!clean) return false;
+  return /^(zdravo|ćao|cao|ciao)(?:\s*,\s*|\s+)?(zdravo|ćao|cao|ciao)?$/i.test(
+    clean,
+  );
 }

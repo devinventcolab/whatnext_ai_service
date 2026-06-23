@@ -69,8 +69,16 @@ export const WORKERS: Record<Intent, WorkerSpec> = {
         enum: ['normal', 'urgent'],
         default: () => 'normal',
       },
-      { name: 'task_type', required: false, default: () => TASK_DEFAULTS.task_type },
-      { name: 'profile', required: false, default: () => TASK_DEFAULTS.profile },
+      {
+        name: 'task_type',
+        required: false,
+        default: () => TASK_DEFAULTS.task_type,
+      },
+      {
+        name: 'profile',
+        required: false,
+        default: () => TASK_DEFAULTS.profile,
+      },
       {
         name: 'estimated_time',
         required: false,
@@ -89,7 +97,11 @@ export const WORKERS: Record<Intent, WorkerSpec> = {
         default: ({ now }) => isoLocal(atNine(now, 1)),
       },
       { name: 'domain', required: false, default: () => TASK_DEFAULTS.domain },
-      { name: 'project', required: false, default: () => TASK_DEFAULTS.project },
+      {
+        name: 'project',
+        required: false,
+        default: () => TASK_DEFAULTS.project,
+      },
       { name: 'objective', required: false },
       { name: 'description', required: false },
     ],

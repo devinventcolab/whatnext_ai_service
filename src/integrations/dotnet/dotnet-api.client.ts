@@ -36,7 +36,12 @@ export class DotnetApiClient {
   }
 
   createTask(token: string, payload: unknown) {
-    return this.request(token, 'POST', env.DOTNET_TASKS_PATH, toTaskPayload(payload));
+    return this.request(
+      token,
+      'POST',
+      env.DOTNET_TASKS_PATH,
+      toTaskPayload(payload),
+    );
   }
 
   updateTask(token: string, id: string, payload: unknown) {
@@ -79,7 +84,12 @@ export class DotnetApiClient {
   }
 
   createNote(token: string, payload: unknown) {
-    return this.request(token, 'POST', env.DOTNET_NOTES_PATH, toNotePayload(payload));
+    return this.request(
+      token,
+      'POST',
+      env.DOTNET_NOTES_PATH,
+      toNotePayload(payload),
+    );
   }
 
   updateNote(token: string, id: string, payload: unknown) {
@@ -126,19 +136,10 @@ export class DotnetApiClient {
   }
 
   detailConfigured(token: string, path: string, id: string) {
-    return this.request(
-      token,
-      'GET',
-      addQuery(path, 'id', id),
-    );
+    return this.request(token, 'GET', addQuery(path, 'id', id));
   }
 
-  updateConfigured(
-    token: string,
-    path: string,
-    id: string,
-    payload: unknown,
-  ) {
+  updateConfigured(token: string, path: string, id: string, payload: unknown) {
     return this.request(
       token,
       'PATCH',
@@ -148,11 +149,7 @@ export class DotnetApiClient {
   }
 
   deleteConfigured(token: string, path: string, id: string) {
-    return this.request(
-      token,
-      'DELETE',
-      addQuery(path, 'id', id),
-    );
+    return this.request(token, 'DELETE', addQuery(path, 'id', id));
   }
 
   private async request<T = unknown>(
@@ -229,7 +226,8 @@ export class DotnetApiClient {
       vlog('dotnet', 'request success=false', { path, payload: details });
       throw new ApiError(
         502,
-        extractErrorMessage(payload) ?? 'Existing backend returned success=false',
+        extractErrorMessage(payload) ??
+          'Existing backend returned success=false',
         details,
       );
     }
@@ -264,9 +262,7 @@ function addQuery(path: string, key: string, value: string): string {
 }
 
 function asPayload(payload: unknown): Payload {
-  return payload && typeof payload === 'object'
-    ? (payload as Payload)
-    : {};
+  return payload && typeof payload === 'object' ? (payload as Payload) : {};
 }
 
 function str(value: unknown, fallback = ''): string {
@@ -404,7 +400,8 @@ function toWorklogFormData(raw: unknown): FormData {
   form.append('RealizationTime', str(data.RealizationTime, '0'));
   form.append('Comment', str(data.Comment));
   form.append('TaskName', str(data.TaskName, 'General'));
-  if (data.AttachmentPath) form.append('AttachmentPath', String(data.AttachmentPath));
+  if (data.AttachmentPath)
+    form.append('AttachmentPath', String(data.AttachmentPath));
   return form;
 }
 
@@ -429,7 +426,8 @@ function toPriorityFlag(value: unknown): number {
 }
 
 function toEventDuration(value: unknown, eventName: string): number {
-  if (value !== undefined && value !== null && value !== '') return num(value, 60);
+  if (value !== undefined && value !== null && value !== '')
+    return num(value, 60);
   const defaults: Record<string, number> = {
     Training: 180,
     Workshop: 120,
@@ -442,7 +440,11 @@ function toEventDuration(value: unknown, eventName: string): number {
 }
 
 function joinList(value: unknown, fallback = ''): string {
-  if (Array.isArray(value)) return value.map((v) => str(v)).filter(Boolean).join(',');
+  if (Array.isArray(value))
+    return value
+      .map((v) => str(v))
+      .filter(Boolean)
+      .join(',');
   return str(value, fallback)
     .split(/[,;]/)
     .map((s) => s.trim())
@@ -476,7 +478,8 @@ function toEstimatedHours(
   }
   const start = new Date(startDate).getTime();
   const due = new Date(dueDate).getTime();
-  if (!Number.isFinite(start) || !Number.isFinite(due) || due <= start) return 1;
+  if (!Number.isFinite(start) || !Number.isFinite(due) || due <= start)
+    return 1;
   const hours = (due - start) / (1000 * 60 * 60);
   return Math.max(0.1, Math.round(hours * 10) / 10);
 }
@@ -503,7 +506,9 @@ function extractErrorMessage(payload: unknown): string | undefined {
 function validationErrorsMessage(errors: unknown): string | undefined {
   if (!errors || typeof errors !== 'object') return undefined;
   const parts: string[] = [];
-  for (const [field, value] of Object.entries(errors as Record<string, unknown>)) {
+  for (const [field, value] of Object.entries(
+    errors as Record<string, unknown>,
+  )) {
     if (Array.isArray(value)) {
       const message = value.map(String).join(', ');
       if (message) parts.push(`${field}: ${message}`);
@@ -520,7 +525,9 @@ function looksLikeHtml(value: string): boolean {
 
 function sanitizeErrorDetails(payload: unknown): unknown {
   if (!payload || typeof payload !== 'object') return payload;
-  const copy: Record<string, unknown> = { ...(payload as Record<string, unknown>) };
+  const copy: Record<string, unknown> = {
+    ...(payload as Record<string, unknown>),
+  };
   if (typeof copy.raw === 'string' && looksLikeHtml(copy.raw)) {
     copy.raw = '[HTML error page omitted]';
   }

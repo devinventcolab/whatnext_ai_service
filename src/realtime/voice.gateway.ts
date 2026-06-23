@@ -135,7 +135,11 @@ export function attachVoiceGateway(server: Server) {
 
       // Throttle: chunks are tiny and frequent, so log every 50th.
       if (audioChunks % 50 === 0) {
-        vlog('gateway', `voice:audio x${audioChunks}`, `${buf?.length ?? 0} bytes`);
+        vlog(
+          'gateway',
+          `voice:audio x${audioChunks}`,
+          `${buf?.length ?? 0} bytes`,
+        );
       }
 
       if (buf && buf.length) session?.audio(buf);
@@ -198,7 +202,10 @@ function toAudioBuffer(chunk: unknown): Buffer | undefined {
     const view = chunk as ArrayBufferView;
     return Buffer.from(view.buffer, view.byteOffset, view.byteLength);
   }
-  if (typeof chunk === 'object' && Array.isArray((chunk as { data?: unknown }).data)) {
+  if (
+    typeof chunk === 'object' &&
+    Array.isArray((chunk as { data?: unknown }).data)
+  ) {
     return Buffer.from((chunk as { data: number[] }).data);
   }
   return undefined;
