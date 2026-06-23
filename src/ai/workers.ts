@@ -73,7 +73,7 @@ export const WORKERS: Record<Intent, WorkerSpec> = {
       { name: 'profile', required: false, default: () => TASK_DEFAULTS.profile },
       {
         name: 'estimated_time',
-        required: true,
+        required: false,
         type: 'number',
         default: () => 1,
       },
