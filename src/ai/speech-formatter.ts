@@ -19,10 +19,14 @@ export class SpeechFormatter {
     if (!value) return '';
     const raw = String(value).trim();
     // A bare "YYYY-MM-DD" is parsed by JS as UTC midnight, which shifts the day
-    // and adds a phantom time in non-UTC zones. Parse it as a local calendar
-    // date instead so it stays date-only.
-    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(raw);
-    const date = dateOnly ? parseLocalDate(raw) : new Date(raw);
+    // and adds a phantom time in non-UTC zones. Also, machine formats like
+    // "YYYY-MM-DDT00:00:00.000Z" should be treated as date-only so they don't
+    // introduce spurious timezone-shifted times.
+    const dateOnlyMatch = raw.match(
+      /^(\d{4}-\d{2}-\d{2})(?:T00:00:00(?:\.\d{1,3})?(?:Z|[+-]00:?00)?)?$/,
+    );
+    const dateOnly = !!dateOnlyMatch;
+    const date = dateOnly ? parseLocalDate(dateOnlyMatch[1]) : new Date(raw);
     if (Number.isNaN(date.getTime())) return String(value);
 
     const timed = !dateOnly && hasTime(date);
@@ -62,6 +66,42 @@ export class SpeechFormatter {
       hours,
       minutes: mins,
     });
+  }
+
+  formatEstimatedTime(hoursVal: unknown, language: SupportedLanguage): string {
+    const total = Number(hoursVal);
+    if (!Number.isFinite(total) || total < 0) return String(hoursVal ?? '');
+
+    const days = Math.floor(total / 24);
+    const remainingHours = total % 24;
+    const hours = Math.floor(remainingHours);
+    const minutes = Math.round((remainingHours - hours) * 60);
+
+    const parts: string[] = [];
+
+    if (language === 'sr') {
+      if (days > 0) {
+        parts.push(`${days} ${getSrPlural(days, 'dan', 'dana', 'dana')}`);
+      }
+      if (hours > 0) {
+        parts.push(`${hours} ${getSrPlural(hours, 'sat', 'sata', 'sati')}`);
+      }
+      if (minutes > 0) {
+        parts.push(`${minutes} ${getSrPlural(minutes, 'minut', 'minuta', 'minuta')}`);
+      }
+    } else {
+      if (days > 0) {
+        parts.push(`${days} ${days === 1 ? 'day' : 'days'}`);
+      }
+      if (hours > 0) {
+        parts.push(`${hours} ${hours === 1 ? 'hour' : 'hours'}`);
+      }
+      if (minutes > 0) {
+        parts.push(`${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`);
+      }
+    }
+
+    return parts.join(', ') || `0 ${language === 'sr' ? 'minuta' : 'minutes'}`;
   }
 
   formatValue(value: unknown, language: SupportedLanguage): string {
@@ -299,4 +339,21 @@ function timeToWords(date: Date): string {
     return `${hourWord} Oh ${twoDigitWords(minutes)} ${meridiem}`;
   }
   return `${hourWord} ${twoDigitWords(minutes)} ${meridiem}`;
+}
+
+function getSrPlural(
+  n: number,
+  singular: string,
+  dual: string,
+  plural: string,
+): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) {
+    return singular;
+  }
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) {
+    return dual;
+  }
+  return plural;
 }

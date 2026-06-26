@@ -9,6 +9,7 @@ import { EntityQuery, EntityType, isEntityType } from './entities';
 import { QueryMode, QueryWorkerService } from './query-worker.service';
 import { ToolExecutorService } from './tool-executor.service';
 import { UpdateWorkerService } from './update-worker.service';
+import { SpeechFormatter } from './speech-formatter';
 import { Intent, INTENTS, WORKERS } from './workers';
 
 type Fields = Record<string, unknown>;
@@ -63,6 +64,7 @@ export class ConversationManagerService {
   private readonly queryWorker = new QueryWorkerService();
   private readonly updateWorker = new UpdateWorkerService();
   private readonly deleteWorker = new DeleteWorkerService();
+  private readonly speechFormatter = new SpeechFormatter();
 
   // ----- per-session state -----
   private intent: Intent | null = null;
@@ -318,14 +320,14 @@ export class ConversationManagerService {
       '- "queryMode": "count" for how many/count; "list" for show/list; "search" when matching by title/topic/date; "detail" for one record details.',
       '- "query": include text/status/dateFrom/dateTo/limit filters explicitly requested. For tomorrow/yesterday/today ranges, emit ISO dateFrom/dateTo.',
       '- "selection": when command is select, copy the selection phrase (e.g. "first one", "project note", or an ID).',
-      '- "fields": include ONLY fields explicitly mentioned this turn, using the exact field names above. Use allowed enum values verbatim. "duration" is minutes (number); "estimated_time" is hours (number); dates/times must be ISO 8601 strings. Field VALUES should stay in the user\'s language. Do not invent values; omit unknowns.',
+      '- "fields": include ONLY fields explicitly mentioned this turn, using the exact field names above. Use allowed enum values verbatim. "duration" is minutes (number); "estimated_time" is hours (number); dates/times must be ISO 8601 strings (YYYY-MM-DD for date-only when no time is specified, YYYY-MM-DDTHH:mm:ss when time is explicitly mentioned). Field VALUES should stay in the user\'s language. Do not invent values; omit unknowns.',
       '- When a user specifies multiple fields in a single sentence (e.g., "title will be what next project will be mobile app domain will be finance"), do NOT merge the subsequent field names (like "project", "domain") or their values into previous fields (like "title"). Correctly identify where each field begins and ends, and extract them separately.',
       '- NEVER infer or default the task "assignee". Only set "assignee" when the user explicitly names who is responsible (e.g. "assign it to John", "give it to Sara"). Do NOT set it to "me", the current user, or anyone the user did not name — leave it out so the assistant can ask.',
       '- "reply": only set this (in the user\'s language) with a short clarification when the user is off-topic or ambiguous; otherwise use an empty string.',
       'Examples:',
       '1. User transcript: "create a task for me title will be what next project will be mobile app domain will be finance assigning will be Rajshree priority will be low due date will be 28 June 2026 objective will test today and description need complete"',
       '   Expected JSON response:',
-      '   {"intent":"task","entity":"task","command":"create","fields":{"title":"what next","project":"mobile app","domain":"finance","assignee":"Rajshree","priority":"low","dueDate":"2026-06-28T00:00:00.000Z","objective":"test today","description":"need complete"}}',
+      '   {"intent":"task","entity":"task","command":"create","fields":{"title":"what next","project":"mobile app","domain":"finance","assignee":"Rajshree","priority":"low","dueDate":"2026-06-28","objective":"test today","description":"need complete"}}',
       '2. User transcript: "add note title work update content finished the reports"',
       '   Expected JSON response:',
       '   {"intent":"note","entity":"note","command":"create","fields":{"title":"work update","content":"finished the reports"}}',
@@ -496,7 +498,9 @@ export class ConversationManagerService {
         (Array.isArray(v) && v.length === 0);
       const value = isEmpty
         ? languageManager.t('msg.notSet', this.language)
-        : formatValue(v);
+        : f.name === 'estimated_time'
+          ? this.speechFormatter.formatEstimatedTime(v, this.language)
+          : formatValue(v);
       return `- ${label}: ${value}`;
     });
     return `${header}\n${lines.join('\n')}`;

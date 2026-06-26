@@ -116,7 +116,7 @@ const sr: TranslationTable = {
   'field.task.task_type.question': 'Koji je tip zadatka?',
   'field.task.profile.label': 'Profil',
   'field.task.profile.question': 'Za koji profil je ovo?',
-  'field.task.estimated_time.label': 'Procenjeno vreme (sati)',
+  'field.task.estimated_time.label': 'Procenjeno vreme',
   'field.task.estimated_time.question':
     'Koliko sati procenjujete da će trajati?',
   'field.task.assignee.label': 'Izvršilac',

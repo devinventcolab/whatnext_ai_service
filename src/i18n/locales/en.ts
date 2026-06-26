@@ -118,7 +118,7 @@ const en: TranslationTable = {
   'field.task.task_type.question': 'What type of task is it?',
   'field.task.profile.label': 'Profile',
   'field.task.profile.question': 'Which profile is this for?',
-  'field.task.estimated_time.label': 'Estimated time (hours)',
+  'field.task.estimated_time.label': 'Estimated time',
   'field.task.estimated_time.question':
     'How many hours do you estimate it will take?',
   'field.task.assignee.label': 'Assignee',
