@@ -64,3 +64,59 @@ describe('ConversationManagerService - Serbian Greetings', () => {
     }
   });
 });
+
+describe('ConversationManagerService - Exit/Close Commands', () => {
+  let service: ConversationManagerService;
+
+  beforeEach(() => {
+    service = new ConversationManagerService();
+  });
+
+  const expectedEnglishFarewells = [
+    'Thank you! Have a great day. See you again soon!',
+    'Thanks for using the app. Take care, and see you again!',
+    'Alright! Thanks for stopping by. See you next time!',
+  ];
+
+  const expectedSerbianFarewells = [
+    'Hvala vam! Prijatan dan. Vidimo se uskoro!',
+    'Hvala što koristite aplikaciju. Čuvajte se i vidimo se ponovo!',
+    'U redu! Hvala što ste svratili. Vidimo se sledeći put!',
+  ];
+
+  it('handles "Close the app" and returns command: "close" and a random English farewell message', async () => {
+    const res = await service.handle({
+      token: 'fake-token',
+      transcript: 'Close the app',
+      userId: 'user-1',
+    });
+
+    expect(res.command).toBe('close');
+    expect(expectedEnglishFarewells).toContain(res.text);
+    expect(res.language).toBe('en');
+  });
+
+  it('handles "Leave the app" and returns command: "close" and a random English farewell message', async () => {
+    const res = await service.handle({
+      token: 'fake-token',
+      transcript: 'Leave the app',
+      userId: 'user-1',
+    });
+
+    expect(res.command).toBe('close');
+    expect(expectedEnglishFarewells).toContain(res.text);
+    expect(res.language).toBe('en');
+  });
+
+  it('handles Serbian "zatvori aplikaciju" and returns command: "close" and a random Serbian farewell message', async () => {
+    const res = await service.handle({
+      token: 'fake-token',
+      transcript: 'zatvori aplikaciju',
+      userId: 'user-1',
+    });
+
+    expect(res.command).toBe('close');
+    expect(expectedSerbianFarewells).toContain(res.text);
+    expect(res.language).toBe('sr');
+  });
+});

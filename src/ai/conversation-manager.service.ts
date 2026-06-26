@@ -44,6 +44,7 @@ export interface AssistantResult {
   toolResults: Array<{ toolName: string; result: unknown }>;
   /** Language the reply is written in, so the caller can pick the TTS voice. */
   language: SupportedLanguage;
+  command?: string;
 }
 
 // Reset the conversation if the user goes quiet for this long.
@@ -120,7 +121,16 @@ export class ConversationManagerService {
       this.reset();
       this.updateWorker.reset();
       this.deleteWorker.reset();
-      return this.reply('msg.closing');
+
+      const isExit = isAppExitPhrase(text);
+      let replyResult: AssistantResult;
+      if (isExit) {
+        replyResult = this.rawReply(getRandomFarewell(this.language));
+      } else {
+        replyResult = this.reply('msg.closing');
+      }
+      replyResult.command = 'close';
+      return replyResult;
     }
 
     let nlu: Nlu;
@@ -156,7 +166,16 @@ export class ConversationManagerService {
       this.reset();
       this.updateWorker.reset();
       this.deleteWorker.reset();
-      return this.reply('msg.closing');
+
+      const isExit = isAppExitPhrase(text);
+      let replyResult: AssistantResult;
+      if (isExit) {
+        replyResult = this.rawReply(getRandomFarewell(this.language));
+      } else {
+        replyResult = this.reply('msg.closing');
+      }
+      replyResult.command = 'close';
+      return replyResult;
     }
 
     const auth = {
@@ -577,6 +596,39 @@ function formatValue(value: unknown): string {
   return String(value);
 }
 
+const FAREWELL_MESSAGES_EN = [
+  'Thank you! Have a great day. See you again soon!',
+  'Thanks for using the app. Take care, and see you again!',
+  'Alright! Thanks for stopping by. See you next time!',
+];
+
+const FAREWELL_MESSAGES_SR = [
+  'Hvala vam! Prijatan dan. Vidimo se uskoro!',
+  'Hvala što koristite aplikaciju. Čuvajte se i vidimo se ponovo!',
+  'U redu! Hvala što ste svratili. Vidimo se sledeći put!',
+];
+
+const APP_EXIT_PATTERNS = [
+  /^(ok(ay)?|alright|cool|great)?\s*(close( the)? app|leave( the)? app|exit( the)? app|quit( the)? app|close assistant|leave assistant|exit assistant|quit assistant|close window|exit window|shut down( the)? app|close|leave|exit|quit|close it|exit it|shut down|turn off|turn off the app)$/,
+  /^(zatvori aplikaciju|izadji iz aplikacije|izađi iz aplikacije|zatvori prozor|ugasi aplikaciju|zatvori|izadji|izađi|ugasi)$/,
+];
+
+function getRandomFarewell(lang: string): string {
+  const messages = lang === 'sr' ? FAREWELL_MESSAGES_SR : FAREWELL_MESSAGES_EN;
+  const index = Math.floor(Math.random() * messages.length);
+  return messages[index];
+}
+
+function isAppExitPhrase(text: string): boolean {
+  const clean = text
+    .trim()
+    .toLowerCase()
+    .replace(/[.!?,]+$/g, '')
+    .trim();
+  if (!clean) return false;
+  return APP_EXIT_PATTERNS.some((re) => re.test(clean));
+}
+
 /**
  * True when the whole message is just a closing/thank-you/farewell, so the
  * assistant can wrap up politely. Matched deterministically (English + Serbian)
@@ -591,6 +643,7 @@ function isClosingPhrase(text: string): boolean {
     .trim();
   if (!clean) return false;
   const patterns: RegExp[] = [
+    ...APP_EXIT_PATTERNS,
     // English: thanks / thank you (optionally prefixed with ok/okay/alright)
     /^(ok(ay)?|alright|cool|great|perfect)?\s*(thank you( so much| very much)?|thanks( a lot| so much| very much)?|thankyou|thx|ty)$/,
     // English: goodbye / see you / talk later
