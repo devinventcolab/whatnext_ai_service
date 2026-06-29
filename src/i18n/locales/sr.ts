@@ -144,6 +144,9 @@ const sr: TranslationTable = {
   'field.task.objective.question': 'Koji je cilj?',
   'field.task.description.label': 'Opis',
   'field.task.description.question': 'Želite li da dodate opis?',
+  'field.task.status.label': 'Status',
+  'field.task.reminder.label': 'Podsetnik',
+  'field.task.tags.label': 'Oznake',
 
   // ---- note fields ----
   'field.note.title.label': 'Naziv',

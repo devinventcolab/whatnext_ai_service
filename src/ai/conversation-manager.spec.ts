@@ -310,7 +310,10 @@ describe('ConversationManagerService - Event Update Flow', () => {
     });
 
     // It should return the natural confirmation
-    expect(res.text).toBe("Done! I've updated the event by changing the title to **Novi Sastanak**.");
+    expect(res.text).toContain("Your event has been updated successfully.");
+    expect(res.text).toContain("**Updated Fields**");
+    expect(res.text).toContain("* Title: Novi Sastanak");
+    expect(res.text).toContain("**Updated Event Summary**");
 
     // It should return the tool result with the entire updated object
     expect(res.toolResults).toHaveLength(1);

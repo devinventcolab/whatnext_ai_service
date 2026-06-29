@@ -18,6 +18,9 @@ export interface UpdateWorkerResult {
     toolName: string;
     result: unknown;
   };
+  entity?: EntityType;
+  patch?: Record<string, unknown>;
+  fullRecord?: Record<string, unknown>;
 }
 
 export interface UpdateWorkerInput {
@@ -170,8 +173,14 @@ export class UpdateWorkerService {
       toolName: updateTool,
       result: result.value,
     };
+    const entity = this.entity;
+    const patch = { ...this.patch };
+    const fullRecord = {
+      ...this.selected.raw,
+      ...this.patch,
+    };
     this.reset();
-    return { text, updated };
+    return { text, updated, entity, patch, fullRecord };
   }
 
   private mergePatch(patch: Record<string, unknown>) {

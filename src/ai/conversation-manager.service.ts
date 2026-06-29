@@ -260,8 +260,30 @@ export class ConversationManagerService {
         }
       }
 
+      let responseText = updateResult.text;
+      if (updateResult.updated) {
+        const entity = (updateResult.entity || 'task') as Intent;
+        const patch = updateResult.patch || {};
+        const fullRecord = updateResult.fullRecord || {};
+
+        const confirmation = getUpdateConfirmationMessage(entity, this.language);
+
+        const updatedFieldsLines = Object.entries(patch).map(([key, value]) => {
+          const label = languageManager.t(`field.${entity}.${key}.label`, this.language);
+          const formattedVal = this.speechFormatter.formatValue(value, this.language);
+          return `* ${label}: ${formattedVal}`;
+        });
+        const updatedFieldsHeader = this.language === 'sr' ? '**Ažurirana polja**' : '**Updated Fields**';
+        const updatedFieldsSection = `${updatedFieldsHeader}\n\n${updatedFieldsLines.join('\n')}`;
+
+        const summaryHeader = this.getSummaryHeader(entity, true);
+        const completeSummary = this.buildCompleteSummary(entity, fullRecord, summaryHeader);
+
+        responseText = `${confirmation}\n\n${updatedFieldsSection}\n\n${completeSummary}`;
+      }
+
       return {
-        text: updateResult.text,
+        text: responseText,
         operation: updateResult.updated ? 'update' : 'NA',
         toolResults: updateResult.updated
           ? [{ toolName: updateResult.updated.toolName, result: updateResult.updated.result }]
@@ -626,9 +648,12 @@ export class ConversationManagerService {
         confirmed: true,
       });
       vlog('worker', `${spec.createTool} created`);
+      const capitalizedNoun = this.language === 'sr' ? noun : noun.charAt(0).toUpperCase() + noun.slice(1);
+      const summaryHeader = this.getSummaryHeader(intent, false);
+      const summaryText = this.buildCompleteSummary(intent, this.fields, summaryHeader);
       this.reset();
       return {
-        text: languageManager.t('msg.created', this.language, { noun }),
+        text: `${languageManager.t('msg.created', this.language, { noun: capitalizedNoun })}\n\n${summaryText}`,
         toolResults: [{ toolName: spec.createTool, result }],
         language: this.language,
       };
@@ -681,6 +706,79 @@ export class ConversationManagerService {
     return { text, toolResults: [], language: this.language };
   }
 
+  private getSummaryHeader(intent: Intent, isUpdate: boolean): string {
+    const noun = this.noun(intent);
+    if (this.language === 'sr') {
+      return isUpdate ? `**Ažurirani pregled (${noun})**` : `**Pregled (${noun})**`;
+    } else {
+      const nounCapitalized = intent === 'worklog' ? 'Work Log' : noun.charAt(0).toUpperCase() + noun.slice(1);
+      return isUpdate ? `**Updated ${nounCapitalized} Summary**` : `**${nounCapitalized} Summary**`;
+    }
+  }
+
+  private buildCompleteSummary(intent: Intent, fields: Fields, header: string): string {
+    if (intent === 'task') {
+      const list = [
+        { keys: ['title', 'taskName'], labelKey: 'field.task.title.label' },
+        { keys: ['description'], labelKey: 'field.task.description.label' },
+        { keys: ['dueDate', 'due_date', 'DeadlineDate'], labelKey: 'field.task.dueDate.label' },
+        { keys: ['priority'], labelKey: 'field.task.priority.label' },
+        { keys: ['status'], labelKey: 'field.task.status.label' },
+        { keys: ['assignee', 'AssignedUserIds'], labelKey: 'field.task.assignee.label' },
+        { keys: ['reminders', 'reminder'], labelKey: 'field.task.reminder.label' },
+        { keys: ['tags', 'tag', 'hashtag'], labelKey: 'field.task.tags.label' }
+      ];
+
+      const lines = list.map((item) => {
+        let v = getFieldValue(fields, item.keys);
+        if (item.labelKey === 'field.task.status.label' && !v) {
+          v = 'Pending';
+        }
+        const label = languageManager.t(item.labelKey, this.language);
+        const isEmpty =
+          v === undefined ||
+          v === null ||
+          v === '' ||
+          (Array.isArray(v) && v.length === 0);
+        
+        let value = isEmpty ? '—' : formatValue(v);
+        if (!isEmpty) {
+          if (item.labelKey === 'field.task.priority.label' || item.labelKey === 'field.task.status.label') {
+            value = capitalize(this.speechFormatter.formatValue(v, this.language));
+          } else {
+            value = this.speechFormatter.formatValue(v, this.language);
+          }
+        }
+        return `* ${label}: ${value}`;
+      });
+
+      return `${header}\n\n${lines.join('\n')}`;
+    }
+
+    // For note, event, worklog
+    const lines = WORKERS[intent].fields.map((f) => {
+      const label = languageManager.t(
+        `field.${intent}.${f.name}.label`,
+        this.language,
+      );
+      const v = fields[f.name];
+      const isEmpty =
+        v === undefined ||
+        v === null ||
+        v === '' ||
+        (Array.isArray(v) && v.length === 0);
+      const value = isEmpty
+        ? '—'
+        : f.name === 'estimated_time'
+          ? this.speechFormatter.formatEstimatedTime(v, this.language)
+          : f.enum
+            ? this.speechFormatter.formatValue(v, this.language)
+            : formatValue(v);
+      return `* ${label}: ${value}`;
+    });
+    return `${header}\n\n${lines.join('\n')}`;
+  }
+
   private injectOperation(
     result: AssistantResult,
     rawText: string,
@@ -715,6 +813,36 @@ export class ConversationManagerService {
 function formatValue(value: unknown): string {
   if (Array.isArray(value)) return value.join(', ');
   return String(value);
+}
+
+function getFieldValue(fields: Record<string, unknown>, keys: string[]): unknown {
+  for (const k of keys) {
+    if (fields[k] !== undefined && fields[k] !== null) return fields[k];
+    const lower = k.toLowerCase();
+    for (const [rawKey, val] of Object.entries(fields)) {
+      if (rawKey.toLowerCase() === lower && val !== undefined && val !== null) {
+        return val;
+      }
+    }
+  }
+  return undefined;
+}
+
+function capitalize(s: string): string {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function getUpdateConfirmationMessage(entity: string, language: string): string {
+  if (language === 'sr') {
+    if (entity === 'note') return 'Vaša beleška je uspešno ažurirana.';
+    if (entity === 'worklog') return 'Vaša evidencija rada je uspešno ažurirana.';
+    if (entity === 'event') return 'Vaš događaj je uspešno ažuriran.';
+    return 'Vaš zadatak je uspešno ažuriran.';
+  } else {
+    const noun = entity === 'worklog' ? 'work log' : entity;
+    return `Your ${noun} has been updated successfully.`;
+  }
 }
 
 const FAREWELL_MESSAGES_EN = [
