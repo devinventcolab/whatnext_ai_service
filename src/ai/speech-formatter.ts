@@ -170,7 +170,7 @@ export class SpeechFormatter {
   }
 
   private humanizeEnum(value: string, language: SupportedLanguage): string {
-    const key = `enum.${value}`;
+    const key = `enum.${value.toLowerCase()}`;
     const translated = languageManager.t(key, language);
     if (translated !== key) return translated;
     return value.replace(/[_-]+/g, ' ');

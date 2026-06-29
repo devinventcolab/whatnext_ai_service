@@ -261,13 +261,16 @@ export class ConversationManagerService {
     if (this.invalidField && this.intent) {
       const field = this.invalidField;
       this.invalidField = undefined;
+      const localizedValues = field.allowed
+        .map((val) => languageManager.t(`enum.${val.toLowerCase()}`, this.language))
+        .join(', ');
       return this.rawReply(
         languageManager.t('msg.invalidEnum', this.language, {
           field: languageManager.t(
             `field.${this.intent}.${field.name}.label`,
             this.language,
           ),
-          values: field.allowed.join(', '),
+          values: localizedValues,
         }),
       );
     }
@@ -456,8 +459,21 @@ export class ConversationManagerService {
               .filter(Boolean);
         applied = true;
       } else if (f.enum) {
-        const s = String(v).toLowerCase();
-        const match = f.enum.find((e) => e.toLowerCase() === s);
+        const s = String(v).trim().toLowerCase();
+        let match = f.enum.find((e) => e.toLowerCase() === s);
+        if (!match) {
+          for (const lang of languageManager.supportedLanguages) {
+            const found = f.enum.find((e) => {
+              const key = `enum.${e.toLowerCase()}`;
+              const translated = languageManager.t(key, lang);
+              return translated.toLowerCase() === s;
+            });
+            if (found) {
+              match = found;
+              break;
+            }
+          }
+        }
         if (match) {
           this.fields[f.name] = match;
           applied = true;
@@ -519,7 +535,9 @@ export class ConversationManagerService {
         ? languageManager.t('msg.notSet', this.language)
         : f.name === 'estimated_time'
           ? this.speechFormatter.formatEstimatedTime(v, this.language)
-          : formatValue(v);
+          : f.enum
+            ? this.speechFormatter.formatValue(v, this.language)
+            : formatValue(v);
       return `- ${label}: ${value}`;
     });
     return `${header}\n${lines.join('\n')}`;

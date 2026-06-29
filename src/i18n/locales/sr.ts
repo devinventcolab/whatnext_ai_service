@@ -99,6 +99,17 @@ const sr: TranslationTable = {
   'enum.in_progress': 'u toku',
   'enum.done': 'završeno',
   'enum.cancelled': 'otkazano',
+  'enum.idea': 'Ideja',
+  'enum.reminder': 'Podsetnik',
+  'enum.personal': 'Lično',
+  'enum.meeting': 'Sastanak',
+  'enum.kick-off': 'Kick-off',
+  'enum.training': 'Obuka',
+  'enum.workshop': 'Radionica',
+  'enum.conference': 'Konferencija',
+  'enum.presentation': 'Prezentacija',
+  'enum.interview': 'Intervju',
+  'enum.trip': 'Putovanje',
 
   // ---- HTTP / API errors ----
   'error.validation': 'Validacija nije uspela',
@@ -141,7 +152,7 @@ const sr: TranslationTable = {
   'field.note.content.question': 'Šta treba da piše u belešci?',
   'field.note.type.label': 'Tip',
   'field.note.type.question':
-    'Da li je Ideja (Idea), Podsetnik (Reminder) ili Lična (Personal)?',
+    'Da li je Ideja, Podsetnik ili Lična?',
   'field.note.tag.label': 'Oznake',
   'field.note.tag.question': 'Želite li da dodate oznake?',
   'field.note.created_at.label': 'Vreme kreiranja',
@@ -152,7 +163,7 @@ const sr: TranslationTable = {
   // ---- event fields ----
   'field.event.eventName.label': 'Tip događaja',
   'field.event.eventName.question':
-    'Koji je tip događaja? Izaberite jednu od opcija: Meeting, Kick-off, Training, Workshop, Conference, Presentation, Interview ili Trip.',
+    'Koji je tip događaja? Izaberite jednu od opcija: Sastanak, Kick-off, Obuka, Radionica, Konferencija, Prezentacija, Intervju ili Putovanje.',
   'field.event.title.label': 'Naziv',
   'field.event.title.question': 'Koji je naziv događaja?',
   'field.event.eventDate.label': 'Datum i vreme',

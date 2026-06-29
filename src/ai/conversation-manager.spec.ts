@@ -120,3 +120,86 @@ describe('ConversationManagerService - Exit/Close Commands', () => {
     expect(res.language).toBe('sr');
   });
 });
+
+describe('ConversationManagerService - Serbian Enum Handling and Translation', () => {
+  let service: ConversationManagerService;
+
+  beforeEach(() => {
+    service = new ConversationManagerService();
+  });
+
+  it('maps Serbian eventName inputs to English canonical enums and displays them localized in the summary', async () => {
+    // 1. Start the event creation flow by providing "eventName" as "Sastanak"
+    jest.spyOn(service as any, 'classify').mockResolvedValue({
+      intent: 'event',
+      entity: 'event',
+      command: 'create',
+      queryMode: 'list',
+      query: {},
+      fields: { eventName: 'Sastanak' },
+      language: 'sr',
+    });
+
+    let res = await service.handle({
+      token: 'fake-token',
+      transcript: 'Kreiraj sastanak',
+      userId: 'user-1',
+    });
+
+    // It should switch active language to Serbian
+    expect(service.activeLanguage).toBe('sr');
+    // The internal field for eventName should have been mapped to "Meeting"
+    expect((service as any).fields.eventName).toBe('Meeting');
+
+    // 2. Provide the remaining required fields for the event: title, eventDate, participants
+    jest.spyOn(service as any, 'classify').mockResolvedValue({
+      intent: 'event',
+      entity: 'event',
+      command: 'provide',
+      queryMode: 'list',
+      query: {},
+      fields: {
+        title: 'Godišnji sastanak',
+        eventDate: '2026-06-30T10:00:00',
+        participants: ['Petar', 'Milica'],
+        duration: 60,
+      },
+      language: 'sr',
+    });
+
+    res = await service.handle({
+      token: 'fake-token',
+      transcript: 'Naziv je Godišnji sastanak, za sutra u 10, učesnici Petar i Milica',
+      userId: 'user-1',
+    });
+
+    // Now all required fields are provided, so it should summarize and ask for confirmation
+    // The summary should show the localized event type "Sastanak" instead of "Meeting"
+    expect(res.text).toContain('Tip događaja: Sastanak');
+    expect(res.text).toContain('Naziv: Godišnji sastanak');
+    expect(res.text).toContain('Učesnici: Petar, Milica');
+    expect(res.text).toContain('Da li želite da kreiram ovaj unos');
+  });
+
+  it('handles invalid Serbian enum values and displays localized options in the error message', async () => {
+    jest.spyOn(service as any, 'classify').mockResolvedValue({
+      intent: 'event',
+      entity: 'event',
+      command: 'create',
+      queryMode: 'list',
+      query: {},
+      fields: { eventName: 'Nepostojeći' },
+      language: 'sr',
+    });
+
+    const res = await service.handle({
+      token: 'fake-token',
+      transcript: 'Kreiraj nepostojeći',
+      userId: 'user-1',
+    });
+
+    // It should display Serbian error message with localized event names
+    expect(res.text).toContain('Tip događaja mora biti jedna od sledećih vrednosti');
+    expect(res.text).toContain('Sastanak, Kick-off, Obuka, Radionica, Konferencija, Prezentacija, Intervju, Putovanje');
+  });
+});

@@ -101,6 +101,17 @@ const en: TranslationTable = {
   'enum.in_progress': 'in progress',
   'enum.done': 'done',
   'enum.cancelled': 'cancelled',
+  'enum.idea': 'Idea',
+  'enum.reminder': 'Reminder',
+  'enum.personal': 'Personal',
+  'enum.meeting': 'Meeting',
+  'enum.kick-off': 'Kick-off',
+  'enum.training': 'Training',
+  'enum.workshop': 'Workshop',
+  'enum.conference': 'Conference',
+  'enum.presentation': 'Presentation',
+  'enum.interview': 'Interview',
+  'enum.trip': 'Trip',
 
   // ---- HTTP / API errors ----
   'error.validation': 'Validation failed',
