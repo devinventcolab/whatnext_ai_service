@@ -46,6 +46,7 @@ export interface AssistantResult {
   language: SupportedLanguage;
   command?: string;
   updatedFields?: Record<string, unknown>;
+  operation?: 'update' | 'create' | 'delete' | 'save for later' | 'NA';
 }
 
 // Reset the conversation if the user goes quiet for this long.
@@ -249,6 +250,7 @@ export class ConversationManagerService {
 
       return {
         text: updateResult.text,
+        operation: updateResult.updated ? 'update' : 'NA',
         toolResults: updateResult.updated
           ? [{ toolName: updateResult.updated.toolName, result: updateResult.updated.result }]
           : [],
