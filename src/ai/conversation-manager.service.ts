@@ -238,9 +238,12 @@ export class ConversationManagerService {
       });
 
       const cleanedUpdatedFields: Record<string, unknown> = {};
-      for (const [k, val] of Object.entries(nlu.fields ?? {})) {
-        if (val !== undefined && val !== null && val !== '') {
-          cleanedUpdatedFields[k] = val;
+      const isUpdateOrModify = nlu.command === 'modify' || nlu.command === 'update' || nlu.command === 'provide';
+      if (isUpdateOrModify) {
+        for (const [k, val] of Object.entries(nlu.fields ?? {})) {
+          if (val !== undefined && val !== null && val !== '') {
+            cleanedUpdatedFields[k] = val;
+          }
         }
       }
 
@@ -310,7 +313,12 @@ export class ConversationManagerService {
         `field.${this.intent}.${missing[0]}.question`,
         this.language,
       );
-      return this.rawReply(`${ack}${question}`);
+      const res = this.rawReply(`${ack}${question}`);
+      const isUpdateOrModify = nlu.command === 'modify' || nlu.command === 'provide';
+      if (isUpdateOrModify && Object.keys(this.lastMergedFields).length > 0) {
+        res.updatedFields = this.lastMergedFields;
+      }
+      return res;
     }
 
     // 7) Everything collected -> summarize and ask for confirmation.
@@ -322,7 +330,12 @@ export class ConversationManagerService {
     const confirm = languageManager.t('msg.confirmCreate', this.language, {
       noun: this.noun(this.intent),
     });
-    return this.rawReply(`${lead}\n${this.summary()}\n\n${confirm}`);
+    const res = this.rawReply(`${lead}\n${this.summary()}\n\n${confirm}`);
+    const isUpdateOrModify = nlu.command === 'modify' || nlu.command === 'provide';
+    if (isUpdateOrModify && Object.keys(this.lastMergedFields).length > 0) {
+      res.updatedFields = this.lastMergedFields;
+    }
+    return res;
   }
 
   // ---------------------------------------------------------------------------
@@ -651,11 +664,7 @@ export class ConversationManagerService {
 
   /** Builds a result from already-localized text. */
   private rawReply(text: string): AssistantResult {
-    const res: AssistantResult = { text, toolResults: [], language: this.language };
-    if (Object.keys(this.lastMergedFields).length > 0) {
-      res.updatedFields = this.lastMergedFields;
-    }
-    return res;
+    return { text, toolResults: [], language: this.language };
   }
 }
 
