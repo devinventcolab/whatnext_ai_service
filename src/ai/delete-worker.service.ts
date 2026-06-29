@@ -36,10 +36,6 @@ export class DeleteWorkerService {
     return this.phase !== 'idle';
   }
 
-  getPhase(): DeletePhase {
-    return this.phase;
-  }
-
   reset() {
     this.phase = 'idle';
     this.entity = null;

@@ -46,7 +46,6 @@ export interface AssistantResult {
   language: SupportedLanguage;
   command?: string;
   updatedFields?: Record<string, unknown>;
-  operation?: 'update' | 'create' | 'delete' | 'save for later' | 'NA';
 }
 
 // Reset the conversation if the user goes quiet for this long.
@@ -91,18 +90,6 @@ export class ConversationManagerService {
   }): Promise<AssistantResult> {
     this.lastMergedFields = {};
     const text = input.transcript.trim();
-    const result = await this.processHandle(input, text);
-    return this.injectOperation(result, text);
-  }
-
-  private async processHandle(
-    input: {
-      token: string;
-      transcript: string;
-      userId: string;
-    },
-    text: string,
-  ): Promise<AssistantResult> {
     if (!text) return this.reply('msg.cantHear');
     if (!this.client) return this.reply('msg.noApiKey');
 
@@ -678,32 +665,6 @@ export class ConversationManagerService {
   /** Builds a result from already-localized text. */
   private rawReply(text: string): AssistantResult {
     return { text, toolResults: [], language: this.language };
-  }
-
-  private injectOperation(
-    result: AssistantResult,
-    rawText: string,
-  ): AssistantResult {
-    let op: 'update' | 'create' | 'delete' | 'save for later' | 'NA' = 'NA';
-
-    const lowerText = (rawText || '').toLowerCase();
-    if (
-      lowerText.includes('save for later') ||
-      lowerText.includes('save this for later') ||
-      lowerText.includes('sačuvaj za kasnije') ||
-      lowerText.includes('sacuvaj za kasnije')
-    ) {
-      op = 'save for later';
-    } else if (this.phase === 'confirming') {
-      op = 'create';
-    } else if (this.updateWorker.isActive() && this.updateWorker.getPhase() === 'confirming') {
-      op = 'update';
-    } else if (this.deleteWorker.isActive() && this.deleteWorker.getPhase() === 'confirming') {
-      op = 'delete';
-    }
-
-    result.operation = op;
-    return result;
   }
 }
 
