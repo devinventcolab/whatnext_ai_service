@@ -12,6 +12,14 @@ import { SpeechFormatter } from './speech-formatter';
 
 type UpdatePhase = 'idle' | 'selecting' | 'collecting_changes' | 'confirming';
 
+export interface UpdateWorkerResult {
+  text: string;
+  updated?: {
+    toolName: string;
+    result: unknown;
+  };
+}
+
 export interface UpdateWorkerInput {
   auth: AuthContext;
   language: SupportedLanguage;
@@ -46,10 +54,10 @@ export class UpdateWorkerService {
     this.patch = {};
   }
 
-  async handle(input: UpdateWorkerInput): Promise<string> {
+  async handle(input: UpdateWorkerInput): Promise<UpdateWorkerResult> {
     if (input.command === 'cancel') {
       this.reset();
-      return languageManager.t('update.cancelled', input.language);
+      return { text: languageManager.t('update.cancelled', input.language) };
     }
 
     if (input.command === 'confirm') {
@@ -57,16 +65,18 @@ export class UpdateWorkerService {
     }
 
     if (input.command === 'select') {
-      return this.select(
-        input.selection ?? input.query.text ?? '',
-        input.language,
-      );
+      return {
+        text: this.select(
+          input.selection ?? input.query.text ?? '',
+          input.language,
+        ),
+      };
     }
 
     if (input.command === 'modify' && this.selected) {
       this.mergePatch(input.patch);
       this.phase = 'confirming';
-      return this.confirmation(input.language);
+      return { text: this.confirmation(input.language) };
     }
 
     if (input.entity && (!this.entity || input.entity !== this.entity)) {
@@ -78,7 +88,7 @@ export class UpdateWorkerService {
     }
 
     if (!this.entity) {
-      return languageManager.t('update.whichEntity', input.language);
+      return { text: languageManager.t('update.whichEntity', input.language) };
     }
 
     if (!this.matches.length && !this.selected) {
@@ -87,17 +97,19 @@ export class UpdateWorkerService {
         this.entity,
         input.query,
       );
-      if (!listed.ok) return this.failure(listed.message, input.language);
+      if (!listed.ok) return { text: this.failure(listed.message, input.language) };
       this.matches = listed.value;
       if (!this.matches.length) {
         this.reset();
-        return languageManager.t('update.noMatches', input.language, {
-          entity: plural(this.entity, input.language),
-        });
+        return {
+          text: languageManager.t('update.noMatches', input.language, {
+            entity: plural(this.entity, input.language),
+          }),
+        };
       }
       if (this.matches.length > 1) {
         this.phase = 'selecting';
-        return this.selectionPrompt(input.language);
+        return { text: this.selectionPrompt(input.language) };
       }
       this.selected = this.matches[0];
     }
@@ -105,14 +117,16 @@ export class UpdateWorkerService {
     this.mergePatch(input.patch);
     if (!Object.keys(this.patch).length) {
       this.phase = 'collecting_changes';
-      return languageManager.t('update.whatChange', input.language, {
-        entity: noun(this.entity, input.language),
-        record: this.selectedLabel(input.language),
-      });
+      return {
+        text: languageManager.t('update.whatChange', input.language, {
+          entity: noun(this.entity, input.language),
+          record: this.selectedLabel(input.language),
+        }),
+      };
     }
 
     this.phase = 'confirming';
-    return this.confirmation(input.language);
+    return { text: this.confirmation(input.language) };
   }
 
   private select(text: string, language: SupportedLanguage): string {
@@ -135,12 +149,12 @@ export class UpdateWorkerService {
   private async confirm(
     auth: AuthContext,
     language: SupportedLanguage,
-  ): Promise<string> {
+  ): Promise<UpdateWorkerResult> {
     if (!this.entity || !this.selected || !Object.keys(this.patch).length) {
-      return languageManager.t('update.nothingToConfirm', language);
+      return { text: languageManager.t('update.nothingToConfirm', language) };
     }
     if (!this.selected.id) {
-      return languageManager.t('update.missingId', language);
+      return { text: languageManager.t('update.missingId', language) };
     }
     const result = await this.entities.update(
       auth,
@@ -149,10 +163,15 @@ export class UpdateWorkerService {
       this.patch,
       this.selected,
     );
-    if (!result.ok) return this.failure(result.message, language);
-    const entity = noun(this.entity, language);
+    if (!result.ok) return { text: this.failure(result.message, language) };
+    const text = buildNaturalConfirmation(this.entity, this.patch, this.formatter, language);
+    const updateTool = ENTITY_SPECS[this.entity].updateTool!;
+    const updated = {
+      toolName: updateTool,
+      result: result.value,
+    };
     this.reset();
-    return languageManager.t('update.updated', language, { entity });
+    return { text, updated };
   }
 
   private mergePatch(patch: Record<string, unknown>) {
@@ -247,4 +266,46 @@ function noun(entity: EntityType, language: SupportedLanguage): string {
 
 function plural(entity: EntityType, language: SupportedLanguage): string {
   return languageManager.t(ENTITY_SPECS[entity].pluralKey, language);
+}
+
+function buildNaturalConfirmation(
+  entity: EntityType,
+  patch: Record<string, unknown>,
+  formatter: SpeechFormatter,
+  language: SupportedLanguage,
+): string {
+  const entityNoun = languageManager.t(`noun.${entity}`, language);
+
+  const changes = Object.entries(patch).map(([key, value]) => {
+    const label = languageManager.t(`field.${entity}.${key}.label`, language).toLowerCase();
+    const formattedVal = formatter.formatValue(value, language);
+
+    if (language === 'sr') {
+      return `${label} na **${formattedVal}**`;
+    } else {
+      return `${label} to **${formattedVal}**`;
+    }
+  });
+
+  if (changes.length === 0) {
+    if (language === 'sr') {
+      return `Gotovo! Ažurirao sam ${entityNoun}.`;
+    }
+    return `Done! I've updated the ${entityNoun}.`;
+  }
+
+  let changesText = '';
+  if (changes.length === 1) {
+    changesText = changes[0];
+  } else {
+    const last = changes[changes.length - 1];
+    const rest = changes.slice(0, changes.length - 1);
+    const andWord = language === 'sr' ? ' i ' : ' and ';
+    changesText = rest.join(', ') + andWord + last;
+  }
+
+  if (language === 'sr') {
+    return `Gotovo! Ažurirao sam ${entityNoun}: promenio sam ${changesText}.`;
+  }
+  return `Done! I've updated the ${entityNoun} by changing the ${changesText}.`;
 }

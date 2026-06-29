@@ -233,3 +233,92 @@ describe('ConversationManagerService - Serbian Enum Handling and Translation', (
     expect(res.text).toContain('Opis: Ovo je opis sastanka na srpskom');
   });
 });
+
+describe('ConversationManagerService - Event Update Flow', () => {
+  let service: ConversationManagerService;
+
+  beforeEach(() => {
+    service = new ConversationManagerService();
+  });
+
+  it('correctly parses, confirms updates and returns updated tool results and natural confirmation', async () => {
+    const { EntityService } = require('./entity-service');
+
+    // Mock the listed matches to return an existing event
+    const mockEvent = {
+      entity: 'event',
+      id: 'event-123',
+      title: 'Stari Sastanak',
+      date: '2026-06-30T10:00:00',
+      raw: {
+        id: 'event-123',
+        title: 'Stari Sastanak',
+        eventDate: '2026-06-30T10:00:00',
+      },
+    };
+
+    jest.spyOn(EntityService.prototype, 'list').mockResolvedValue({
+      ok: true,
+      value: [mockEvent],
+    });
+
+    jest.spyOn(EntityService.prototype, 'update').mockResolvedValue({
+      ok: true,
+      value: {
+        ...mockEvent.raw,
+        title: 'Novi Sastanak',
+      },
+    });
+
+    // 1. Initiate update
+    jest.spyOn(service as any, 'classify').mockResolvedValue({
+      intent: null,
+      entity: 'event',
+      command: 'update',
+      queryMode: 'list',
+      query: { text: 'Stari Sastanak' },
+      fields: { title: 'Novi Sastanak' },
+      language: 'en',
+    });
+
+    let res = await service.handle({
+      token: 'fake-token',
+      transcript: 'Change title of Stari Sastanak to Novi Sastanak',
+      userId: 'user-1',
+    });
+
+    // It should confirm the change first
+    expect(res.text).toContain('Here are the changes for Stari Sastanak');
+    expect(res.text).toContain('Title: Novi Sastanak');
+    expect(res.text).toContain('Should I update this event?');
+
+    // 2. Confirm the update
+    jest.spyOn(service as any, 'classify').mockResolvedValue({
+      intent: null,
+      entity: 'event',
+      command: 'confirm',
+      queryMode: 'list',
+      query: {},
+      fields: {},
+      language: 'en',
+    });
+
+    res = await service.handle({
+      token: 'fake-token',
+      transcript: 'Yes, update it',
+      userId: 'user-1',
+    });
+
+    // It should return the natural confirmation
+    expect(res.text).toBe("Done! I've updated the event by changing the title to **Novi Sastanak**.");
+
+    // It should return the tool result with the entire updated object
+    expect(res.toolResults).toHaveLength(1);
+    expect(res.toolResults[0].toolName).toBe('updateEvent');
+    expect(res.toolResults[0].result).toEqual({
+      id: 'event-123',
+      title: 'Novi Sastanak',
+      eventDate: '2026-06-30T10:00:00',
+    });
+  });
+});

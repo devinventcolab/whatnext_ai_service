@@ -221,20 +221,25 @@ export class ConversationManagerService {
       (this.updateWorker.isActive() &&
         ['modify', 'confirm', 'provide'].includes(nlu.command))
     ) {
-      return this.rawReply(
-        await this.updateWorker.handle({
-          auth,
-          language: this.language,
-          entity: nlu.entity === 'all' ? null : nlu.entity,
-          query: nlu.query,
-          patch: nlu.fields,
-          selection: nlu.selection,
-          command:
-            nlu.command === 'provide'
-              ? 'modify'
-              : (nlu.command as 'update' | 'select' | 'modify' | 'confirm'),
-        }),
-      );
+      const updateResult = await this.updateWorker.handle({
+        auth,
+        language: this.language,
+        entity: nlu.entity === 'all' ? null : nlu.entity,
+        query: nlu.query,
+        patch: nlu.fields,
+        selection: nlu.selection,
+        command:
+          nlu.command === 'provide'
+            ? 'modify'
+            : (nlu.command as 'update' | 'select' | 'modify' | 'confirm'),
+      });
+      return {
+        text: updateResult.text,
+        toolResults: updateResult.updated
+          ? [{ toolName: updateResult.updated.toolName, result: updateResult.updated.result }]
+          : [],
+        language: this.language,
+      };
     }
 
     // 2) Intent switch (or first intent). Switching starts a fresh worker.
