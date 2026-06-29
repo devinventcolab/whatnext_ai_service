@@ -202,4 +202,34 @@ describe('ConversationManagerService - Serbian Enum Handling and Translation', (
     expect(res.text).toContain('Tip događaja mora biti jedna od sledećih vrednosti');
     expect(res.text).toContain('Sastanak, Kick-off, Obuka, Radionica, Konferencija, Prezentacija, Intervju, Putovanje');
   });
+
+  it('correctly maps event description aliases (like eventDescription, opis) to the internal description field', async () => {
+    // Start event creation with "opis" field alias
+    jest.spyOn(service as any, 'classify').mockResolvedValue({
+      intent: 'event',
+      entity: 'event',
+      command: 'create',
+      queryMode: 'list',
+      query: {},
+      fields: {
+        eventName: 'Sastanak',
+        title: 'Sastanak tima',
+        eventDate: '2026-06-30T10:00:00',
+        participants: ['Petar'],
+        duration: 60,
+        opis: 'Ovo je opis sastanka na srpskom',
+      },
+      language: 'sr',
+    });
+
+    const res = await service.handle({
+      token: 'fake-token',
+      transcript: 'Kreiraj sastanak sa opisom',
+      userId: 'user-1',
+    });
+
+    // The internal field for description should be populated with the value of 'opis'
+    expect((service as any).fields.description).toBe('Ovo je opis sastanka na srpskom');
+    expect(res.text).toContain('Opis: Ovo je opis sastanka na srpskom');
+  });
 });

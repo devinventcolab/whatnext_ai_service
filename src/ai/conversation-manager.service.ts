@@ -353,6 +353,9 @@ export class ConversationManagerService {
       '2. User transcript: "add note title work update content finished the reports"',
       '   Expected JSON response:',
       '   {"intent":"note","entity":"note","command":"create","fields":{"title":"work update","content":"finished the reports"}}',
+      '3. User transcript: "kreirajte sastanak pod nazivom Godišnji sastanak za sutra u 10 sa Petrom i Milicom opis je planiranje projekta"',
+      '   Expected JSON response:',
+      '   {"intent":"event","entity":"event","command":"create","queryMode":"list","query":{},"fields":{"eventName":"Sastanak","title":"Godišnji sastanak","eventDate":"2026-06-30T10:00:00","participants":["Petar","Milica"],"duration":60,"description":"planiranje projekta"},"selection":"","language":"sr","reply":""}',
     ].join('\n');
 
     const state = `Current intent: ${this.intent ?? 'none'}. Phase: ${this.phase}. Delete flow active: ${this.deleteWorker.isActive()}. Update flow active: ${this.updateWorker.isActive()}. Session language: ${this.language}. Collected so far: ${JSON.stringify(this.fields)}.`;
@@ -441,8 +444,28 @@ export class ConversationManagerService {
     if (!this.intent || !incoming) return false;
     const spec = WORKERS[this.intent];
     let applied = false;
+
+    const incomingLower: Record<string, unknown> = {};
+    for (const [k, val] of Object.entries(incoming)) {
+      incomingLower[k.toLowerCase()] = val;
+    }
+
     for (const f of spec.fields) {
-      const v = incoming[f.name];
+      let v = incoming[f.name];
+      if (v === undefined || v === null || v === '') {
+        v = incomingLower[f.name.toLowerCase()];
+      }
+      if (f.name === 'description' && (v === undefined || v === null || v === '')) {
+        v =
+          incoming.eventDescription ??
+          incoming.event_description ??
+          incoming.Description ??
+          incoming.opis ??
+          incoming.Opis ??
+          incomingLower['eventdescription'] ??
+          incomingLower['event_description'] ??
+          incomingLower['opis'];
+      }
       if (v === undefined || v === null || v === '') continue;
       if (f.type === 'number') {
         const n = Number(v);
