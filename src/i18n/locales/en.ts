@@ -18,7 +18,7 @@ const en: TranslationTable = {
   'msg.summaryHeader': 'Here’s the {noun} I have:',
   'msg.confirmCreate':
     'Should I create this {noun}, or would you like to change any field first? Say "create" to confirm, or tell me which field to update.',
-  'msg.created': '{noun} created successfully.',
+  'msg.created': 'Done. I’ve created the {noun}.',
   'msg.createFailed':
     'I couldn’t create the {noun}: {error}. Want to try again or change something?',
   'msg.invalidEnum':
@@ -125,18 +125,18 @@ const en: TranslationTable = {
     'What priority — low, standard, high, or extreme?',
   'field.task.urgency.label': 'Urgency',
   'field.task.urgency.question': 'Is it normal or urgent?',
-  'field.task.task_type.label': 'Task Type',
+  'field.task.task_type.label': 'Task type',
   'field.task.task_type.question': 'What type of task is it?',
   'field.task.profile.label': 'Profile',
   'field.task.profile.question': 'Which profile is this for?',
-  'field.task.estimated_time.label': 'Estimated Time',
+  'field.task.estimated_time.label': 'Estimated time',
   'field.task.estimated_time.question':
     'How many hours do you estimate it will take?',
   'field.task.assignee.label': 'Assignee',
   'field.task.assignee.question': 'Who is assigned to it?',
-  'field.task.startDate.label': 'Start Date',
+  'field.task.startDate.label': 'Start date',
   'field.task.startDate.question': 'When should it start?',
-  'field.task.dueDate.label': 'Due Date',
+  'field.task.dueDate.label': 'Due date',
   'field.task.dueDate.question': 'When is it due?',
   'field.task.domain.label': 'Domain',
   'field.task.domain.question': 'Which work domain?',
@@ -146,9 +146,6 @@ const en: TranslationTable = {
   'field.task.objective.question': 'What is the objective?',
   'field.task.description.label': 'Description',
   'field.task.description.question': 'Any description to add?',
-  'field.task.status.label': 'Status',
-  'field.task.reminder.label': 'Reminder',
-  'field.task.tags.label': 'Tags',
 
   // ---- note fields ----
   'field.note.title.label': 'Title',
