@@ -45,6 +45,7 @@ export interface AssistantResult {
   /** Language the reply is written in, so the caller can pick the TTS voice. */
   language: SupportedLanguage;
   command?: string;
+  updatedFields?: Record<string, unknown>;
 }
 
 // Reset the conversation if the user goes quiet for this long.
@@ -75,6 +76,7 @@ export class ConversationManagerService {
   /** Active session language; persists across resets within the session. */
   private language: SupportedLanguage = languageManager.defaultLanguage;
   private lastActivityAt = Date.now();
+  private lastMergedFields: Fields = {};
 
   /** Current session language (for the caller, e.g. TTS voice selection). */
   get activeLanguage(): SupportedLanguage {
@@ -86,6 +88,7 @@ export class ConversationManagerService {
     transcript: string;
     userId: string;
   }): Promise<AssistantResult> {
+    this.lastMergedFields = {};
     const text = input.transcript.trim();
     if (!text) return this.reply('msg.cantHear');
     if (!this.client) return this.reply('msg.noApiKey');
@@ -233,12 +236,21 @@ export class ConversationManagerService {
             ? 'modify'
             : (nlu.command as 'update' | 'select' | 'modify' | 'confirm'),
       });
+
+      const cleanedUpdatedFields: Record<string, unknown> = {};
+      for (const [k, val] of Object.entries(nlu.fields ?? {})) {
+        if (val !== undefined && val !== null && val !== '') {
+          cleanedUpdatedFields[k] = val;
+        }
+      }
+
       return {
         text: updateResult.text,
         toolResults: updateResult.updated
           ? [{ toolName: updateResult.updated.toolName, result: updateResult.updated.result }]
           : [],
         language: this.language,
+        ...(Object.keys(cleanedUpdatedFields).length > 0 ? { updatedFields: cleanedUpdatedFields } : {}),
       };
     }
 
@@ -476,15 +488,18 @@ export class ConversationManagerService {
         const n = Number(v);
         if (!Number.isNaN(n)) {
           this.fields[f.name] = n;
+          this.lastMergedFields[f.name] = n;
           applied = true;
         }
       } else if (f.type === 'array') {
-        this.fields[f.name] = Array.isArray(v)
+        const valArr = Array.isArray(v)
           ? v.map(String)
           : String(v)
               .split(',')
               .map((s) => s.trim())
               .filter(Boolean);
+        this.fields[f.name] = valArr;
+        this.lastMergedFields[f.name] = valArr;
         applied = true;
       } else if (f.enum) {
         const s = String(v).trim().toLowerCase();
@@ -504,12 +519,15 @@ export class ConversationManagerService {
         }
         if (match) {
           this.fields[f.name] = match;
+          this.lastMergedFields[f.name] = match;
           applied = true;
         } else {
           this.invalidField = { name: f.name, allowed: f.enum };
         }
       } else {
-        this.fields[f.name] = String(v);
+        const valStr = String(v);
+        this.fields[f.name] = valStr;
+        this.lastMergedFields[f.name] = valStr;
         applied = true;
       }
     }
@@ -633,7 +651,11 @@ export class ConversationManagerService {
 
   /** Builds a result from already-localized text. */
   private rawReply(text: string): AssistantResult {
-    return { text, toolResults: [], language: this.language };
+    const res: AssistantResult = { text, toolResults: [], language: this.language };
+    if (Object.keys(this.lastMergedFields).length > 0) {
+      res.updatedFields = this.lastMergedFields;
+    }
+    return res;
   }
 }
 
