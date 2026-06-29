@@ -44,6 +44,7 @@ const TASK_DEFAULTS = {
   profile: 'Business',
   domain: 'General',
   project: 'WhatNext app',
+  estimated_time: 1,
 };
 
 /**
@@ -81,14 +82,15 @@ export const WORKERS: Record<Intent, WorkerSpec> = {
       },
       {
         name: 'estimated_time',
-        required: false,
+        required: true,
         type: 'number',
-        default: ({ now, fields }) =>
-          estimateTaskHours(
-            fields.startDate,
-            fields.dueDate,
-            isoLocal(atNine(now, 0)),
-          ),
+        default: () => TASK_DEFAULTS.estimated_time
+        // default: ({ now, fields }) =>
+        //   estimateTaskHours(
+        //     fields.startDate,
+        //     fields.dueDate,
+        //     isoLocal(atNine(now, 0)),
+        //   ),
       },
       { name: 'assignee', required: true },
       {
@@ -99,7 +101,7 @@ export const WORKERS: Record<Intent, WorkerSpec> = {
       {
         name: 'dueDate',
         required: true,
-        default: ({ now }) => isoLocal(atNine(now, 1)),
+        //default: ({ now }) => isoLocal(atNine(now, 1)),
       },
       { name: 'domain', required: false, default: () => TASK_DEFAULTS.domain },
       {
