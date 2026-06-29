@@ -46,8 +46,8 @@ export class UpdateWorkerService {
     return this.phase !== 'idle';
   }
 
-  getEntity(): EntityType | null {
-    return this.entity;
+  getPhase(): UpdatePhase {
+    return this.phase;
   }
 
   reset() {

@@ -46,7 +46,7 @@ export interface AssistantResult {
   language: SupportedLanguage;
   command?: string;
   updatedFields?: Record<string, unknown>;
-  intent?: string;
+  operation?: 'update' | 'create' | 'delete' | 'save for later' | 'NA';
 }
 
 // Reset the conversation if the user goes quiet for this long.
@@ -78,59 +78,10 @@ export class ConversationManagerService {
   private language: SupportedLanguage = languageManager.defaultLanguage;
   private lastActivityAt = Date.now();
   private lastMergedFields: Fields = {};
-  private lastNlu: Nlu | null = null;
 
   /** Current session language (for the caller, e.g. TTS voice selection). */
   get activeLanguage(): SupportedLanguage {
     return this.language;
-  }
-
-  private getPerformedIntent(nlu: Nlu): string | undefined {
-    // 1. If intent is set (e.g. creating/modifying task, note, event, worklog):
-    if (this.intent) {
-      if (this.intent === 'task') return 'create_task';
-      if (this.intent === 'note') return 'create_note';
-      if (this.intent === 'event') return 'schedule_meeting';
-      if (this.intent === 'worklog') return 'log_work';
-    }
-
-    // 2. If update worker is active or nlu command is update:
-    const activeUpdateEntity = this.updateWorker.isActive() ? this.updateWorker.getEntity() : nlu.entity;
-    const isUpdateFlow = nlu.command === 'update' || this.updateWorker.isActive();
-    if (isUpdateFlow && activeUpdateEntity) {
-      if (activeUpdateEntity === 'task') return 'update_task';
-      if (activeUpdateEntity === 'note') return 'update_note';
-      if (activeUpdateEntity === 'event') return 'update_meeting';
-      if (activeUpdateEntity === 'worklog') return 'update_work';
-    }
-
-    // 3. If delete worker is active or nlu command is delete:
-    const activeDeleteEntity = this.deleteWorker.isActive() ? this.deleteWorker.getEntity() : nlu.entity;
-    const isDeleteFlow = nlu.command === 'delete' || this.deleteWorker.isActive();
-    if (isDeleteFlow && activeDeleteEntity) {
-      if (activeDeleteEntity === 'task') return 'delete_task';
-      if (activeDeleteEntity === 'note') return 'delete_note';
-      if (activeDeleteEntity === 'event') return 'delete_meeting';
-      if (activeDeleteEntity === 'worklog') return 'delete_work';
-    }
-
-    // 4. If query worker is active or nlu command is query:
-    if (nlu.command === 'query' && nlu.entity) {
-      if (nlu.entity === 'task') return 'query_task';
-      if (nlu.entity === 'note') return 'query_note';
-      if (nlu.entity === 'event') return 'query_meeting';
-      if (nlu.entity === 'worklog') return 'query_work';
-    }
-
-    // 5. Fallback check from NLU intent if present:
-    if (nlu.intent) {
-      if (nlu.intent === 'task') return 'create_task';
-      if (nlu.intent === 'note') return 'create_note';
-      if (nlu.intent === 'event') return 'schedule_meeting';
-      if (nlu.intent === 'worklog') return 'log_work';
-    }
-
-    return undefined;
   }
 
   async handle(input: {
@@ -138,24 +89,20 @@ export class ConversationManagerService {
     transcript: string;
     userId: string;
   }): Promise<AssistantResult> {
-    this.lastNlu = null;
-    const res = await this.handleInternal(input);
-    if (this.lastNlu) {
-      const intentStr = this.getPerformedIntent(this.lastNlu);
-      if (intentStr) {
-        res.intent = intentStr;
-      }
-    }
-    return res;
-  }
-
-  private async handleInternal(input: {
-    token: string;
-    transcript: string;
-    userId: string;
-  }): Promise<AssistantResult> {
     this.lastMergedFields = {};
     const text = input.transcript.trim();
+    const result = await this.processHandle(input, text);
+    return this.injectOperation(result, text);
+  }
+
+  private async processHandle(
+    input: {
+      token: string;
+      transcript: string;
+      userId: string;
+    },
+    text: string,
+  ): Promise<AssistantResult> {
     if (!text) return this.reply('msg.cantHear');
     if (!this.client) return this.reply('msg.noApiKey');
 
@@ -205,7 +152,6 @@ export class ConversationManagerService {
     let nlu: Nlu;
     try {
       nlu = await this.classify(text);
-      this.lastNlu = nlu;
     } catch (error) {
       vlog('worker', 'nlu error', (error as Error).message);
       return this.reply('msg.nluError');
@@ -732,6 +678,32 @@ export class ConversationManagerService {
   /** Builds a result from already-localized text. */
   private rawReply(text: string): AssistantResult {
     return { text, toolResults: [], language: this.language };
+  }
+
+  private injectOperation(
+    result: AssistantResult,
+    rawText: string,
+  ): AssistantResult {
+    let op: 'update' | 'create' | 'delete' | 'save for later' | 'NA' = 'NA';
+
+    const lowerText = (rawText || '').toLowerCase();
+    if (
+      lowerText.includes('save for later') ||
+      lowerText.includes('save this for later') ||
+      lowerText.includes('sačuvaj za kasnije') ||
+      lowerText.includes('sacuvaj za kasnije')
+    ) {
+      op = 'save for later';
+    } else if (this.phase === 'confirming') {
+      op = 'create';
+    } else if (this.updateWorker.isActive() && this.updateWorker.getPhase() === 'confirming') {
+      op = 'update';
+    } else if (this.deleteWorker.isActive() && this.deleteWorker.getPhase() === 'confirming') {
+      op = 'delete';
+    }
+
+    result.operation = op;
+    return result;
   }
 }
 
