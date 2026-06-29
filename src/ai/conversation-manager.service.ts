@@ -91,6 +91,18 @@ export class ConversationManagerService {
   }): Promise<AssistantResult> {
     this.lastMergedFields = {};
     const text = input.transcript.trim();
+    const result = await this.processHandle(input, text);
+    return this.injectOperation(result, text);
+  }
+
+  private async processHandle(
+    input: {
+      token: string;
+      transcript: string;
+      userId: string;
+    },
+    text: string,
+  ): Promise<AssistantResult> {
     if (!text) return this.reply('msg.cantHear');
     if (!this.client) return this.reply('msg.noApiKey');
 
@@ -374,7 +386,7 @@ export class ConversationManagerService {
       '- "queryMode": "count" for how many/count; "list" for show/list; "search" when matching by title/topic/date; "detail" for one record details.',
       '- "query": include text/status/dateFrom/dateTo/limit filters explicitly requested. For tomorrow/yesterday/today ranges, emit ISO dateFrom/dateTo.',
       '- "selection": when command is select, copy the selection phrase (e.g. "first one", "project note", or an ID).',
-      '- "fields": include ONLY fields explicitly mentioned this turn, using the exact field names above. Use allowed enum values verbatim. "duration" is minutes (number); "estimated_time" is hours (number); dates/times must be ISO 8601 strings (YYYY-MM-DD for date-only when no time is specified, YYYY-MM-DDTHH:mm:ss when time is explicitly mentioned). Field VALUES should stay in the user\'s language. Do not invent values; omit unknowns.',
+      '- "fields": include ONLY fields explicitly mentioned this turn, using the exact field names above. When updating/modifying any intent, detect only the keys explicitly requested to be changed and do not include any other fields (e.g. do not include "title" or "dueDate" unless the user explicitly requested to update/change them). Use allowed enum values verbatim. "duration" is minutes (number); "estimated_time" is hours (number); dates/times must be ISO 8601 strings (YYYY-MM-DD for date-only when no time is specified, YYYY-MM-DDTHH:mm:ss when time is explicitly mentioned). Field VALUES should stay in the user\'s language. Do not invent values; omit unknowns.',
       '- When a user specifies multiple fields in a single sentence (e.g., "title will be what next project will be mobile app domain will be finance"), do NOT merge the subsequent field names (like "project", "domain") or their values into previous fields (like "title"). Correctly identify where each field begins and ends, and extract them separately.',
       '- NEVER infer or default the task "assignee". Only set "assignee" when the user explicitly names who is responsible (e.g. "assign it to John", "give it to Sara"). Do NOT set it to "me", the current user, or anyone the user did not name — leave it out so the assistant can ask.',
       '- "reply": only set this (in the user\'s language) with a short clarification when the user is off-topic or ambiguous; otherwise use an empty string.',
@@ -667,6 +679,36 @@ export class ConversationManagerService {
   /** Builds a result from already-localized text. */
   private rawReply(text: string): AssistantResult {
     return { text, toolResults: [], language: this.language };
+  }
+
+  private injectOperation(
+    result: AssistantResult,
+    rawText: string,
+  ): AssistantResult {
+    let op: 'update' | 'create' | 'delete' | 'save for later' | 'NA' = 'NA';
+
+    const lowerText = (rawText || '').toLowerCase();
+    if (
+      lowerText.includes('save for later') ||
+      lowerText.includes('save this for later') ||
+      lowerText.includes('sačuvaj za kasnije') ||
+      lowerText.includes('sacuvaj za kasnije')
+    ) {
+      op = 'save for later';
+    } else if (result.operation) {
+      op = result.operation;
+    } else if (this.phase === 'confirming') {
+      op = 'create';
+    } else if (this.intent !== null) {
+      op = 'create';
+    } else if (this.updateWorker.isActive()) {
+      op = 'update';
+    } else if (this.deleteWorker.isActive()) {
+      op = 'delete';
+    }
+
+    result.operation = op;
+    return result;
   }
 }
 

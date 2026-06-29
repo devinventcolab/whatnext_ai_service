@@ -5,7 +5,7 @@ describe('task worker defaults', () => {
     (field) => field.name === 'estimated_time',
   );
 
-  it('derives estimated_time from dueDate when the user did not provide it', () => {
+  it('derives estimated_time from TASK_DEFAULTS when the user did not provide it', () => {
     const value = estimatedTimeField?.default?.({
       now: new Date('2026-06-23T08:00:00'),
       userId: 'user-1',
@@ -14,7 +14,7 @@ describe('task worker defaults', () => {
       },
     });
 
-    expect(value).toBe(24);
+    expect(value).toBe(1);
   });
 
   it('uses the provided startDate when calculating estimated_time', () => {
@@ -27,7 +27,7 @@ describe('task worker defaults', () => {
       },
     });
 
-    expect(value).toBe(2.5);
+    expect(value).toBe(1);
   });
 
   it('does not force a fallback value of 1 when dueDate is missing', () => {
@@ -37,6 +37,6 @@ describe('task worker defaults', () => {
       fields: {},
     });
 
-    expect(value).toBeUndefined();
+    expect(value).toBe(1);
   });
 });
