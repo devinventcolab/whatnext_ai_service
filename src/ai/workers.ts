@@ -8,6 +8,7 @@ export const INTENTS: readonly Intent[] = ['task', 'note', 'event', 'worklog'];
 export interface DefaultContext {
   now: Date;
   userId: string;
+  userName?: string;
   fields: Record<string, unknown>;
 }
 
@@ -130,8 +131,13 @@ export const WORKERS: Record<Intent, WorkerSpec> = {
       {
         name: 'created_at',
         required: false,
+        default: ({ now }) => isoLocal(now),
       },
-      { name: 'created_by', required: false },
+      {
+        name: 'created_by',
+        required: false,
+        default: (ctx) => ctx.userName || ctx.userId,
+      },
     ],
   },
 

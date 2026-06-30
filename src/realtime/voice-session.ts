@@ -184,6 +184,7 @@ export class VoiceSession {
         token: this.auth.token,
         transcript: text,
         userId: this.auth.user.id,
+        userName: this.auth.user.name,
       });
       vlog('session', 'assistant:text', {
         text: response.text,

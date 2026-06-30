@@ -384,4 +384,50 @@ describe('ConversationManagerService - SpeechText on Field Update', () => {
     expect(res.speechText).not.toContain('Content: Some content'); // Should not include other fields
     expect(res.speechText).toContain('Should I create this note');
   });
+
+  it('defaults the created_by field to the logged-in user name if provided, otherwise falls back to userId', async () => {
+    // Test case 1: userName is provided
+    jest.spyOn(service as any, 'classify').mockResolvedValue({
+      intent: 'note',
+      entity: 'note',
+      command: 'create',
+      queryMode: 'list',
+      query: {},
+      fields: { title: 'Book List', content: 'Some books to read' },
+      language: 'en',
+    });
+
+    await service.handle({
+      token: 'fake-token',
+      transcript: 'create a note title Book List and content Some books to read',
+      userId: 'user-123',
+      userName: 'Alice Smith',
+    });
+
+    expect((service as any).fields.created_by).toBe('Alice Smith');
+    expect((service as any).fields.created_at).toBeDefined();
+    expect((service as any).fields.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+
+    // Test case 2: userName is not provided
+    service = new ConversationManagerService();
+    jest.spyOn(service as any, 'classify').mockResolvedValue({
+      intent: 'note',
+      entity: 'note',
+      command: 'create',
+      queryMode: 'list',
+      query: {},
+      fields: { title: 'Book List 2', content: 'More books to read' },
+      language: 'en',
+    });
+
+    await service.handle({
+      token: 'fake-token',
+      transcript: 'create a note title Book List 2 and content More books to read',
+      userId: 'user-456',
+    });
+
+    expect((service as any).fields.created_by).toBe('user-456');
+    expect((service as any).fields.created_at).toBeDefined();
+    expect((service as any).fields.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+  });
 });
