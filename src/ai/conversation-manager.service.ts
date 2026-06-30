@@ -79,6 +79,7 @@ export class ConversationManagerService {
   private language: SupportedLanguage = languageManager.defaultLanguage;
   private lastActivityAt = Date.now();
   private lastMergedFields: Fields = {};
+  private currentCommand: Command = 'none';
 
   /** Current session language (for the caller, e.g. TTS voice selection). */
   get activeLanguage(): SupportedLanguage {
@@ -91,9 +92,14 @@ export class ConversationManagerService {
     userId: string;
   }): Promise<AssistantResult> {
     this.lastMergedFields = {};
+    this.currentCommand = 'none';
     const text = input.transcript.trim();
     const result = await this.processHandle(input, text);
-    return this.injectOperation(result, text);
+    const finalResult = this.injectOperation(result, text);
+    if (!finalResult.command && this.currentCommand !== 'none') {
+      finalResult.command = this.currentCommand;
+    }
+    return finalResult;
   }
 
   private async processHandle(
@@ -153,6 +159,7 @@ export class ConversationManagerService {
     let nlu: Nlu;
     try {
       nlu = await this.classify(text);
+      this.currentCommand = nlu.command;
     } catch (error) {
       vlog('worker', 'nlu error', (error as Error).message);
       return this.reply('msg.nluError');
@@ -546,9 +553,9 @@ export class ConversationManagerService {
         const valArr = Array.isArray(v)
           ? v.map(String)
           : String(v)
-              .split(',')
-              .map((s) => s.trim())
-              .filter(Boolean);
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
         this.fields[f.name] = valArr;
         this.lastMergedFields[f.name] = valArr;
         applied = true;
