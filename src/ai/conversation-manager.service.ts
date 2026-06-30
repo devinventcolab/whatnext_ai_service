@@ -47,6 +47,7 @@ export interface AssistantResult {
   command?: string;
   updatedFields?: Record<string, unknown>;
   operation?: 'update' | 'create' | 'delete' | 'save for later' | 'NA';
+  speechText?: string;
 }
 
 // Reset the conversation if the user goes quiet for this long.
@@ -348,6 +349,29 @@ export class ConversationManagerService {
     const isUpdateOrModify = nlu.command === 'modify' || nlu.command === 'provide';
     if (isUpdateOrModify && Object.keys(this.lastMergedFields).length > 0) {
       res.updatedFields = this.lastMergedFields;
+
+      const intent = this.intent!;
+      const updatedLines = Object.keys(this.lastMergedFields)
+        .map((fieldName) => {
+          const f = WORKERS[intent].fields.find((field) => field.name === fieldName);
+          if (!f) return '';
+          const label = languageManager.t(
+            `field.${intent}.${f.name}.label`,
+            this.language,
+          );
+          const v = this.lastMergedFields[fieldName];
+          const value = f.name === 'estimated_time'
+            ? this.speechFormatter.formatEstimatedTime(v, this.language)
+            : f.enum
+              ? this.speechFormatter.formatValue(v, this.language)
+              : formatValue(v);
+          return `${label}: ${value}`;
+        })
+        .filter(Boolean);
+
+      if (updatedLines.length > 0) {
+        res.speechText = `${lead} ${updatedLines.join(', ')}. ${confirm}`;
+      }
     }
     return res;
   }

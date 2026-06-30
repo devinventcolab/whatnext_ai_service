@@ -322,3 +322,66 @@ describe('ConversationManagerService - Event Update Flow', () => {
     });
   });
 });
+
+describe('ConversationManagerService - SpeechText on Field Update', () => {
+  let service: ConversationManagerService;
+
+  beforeEach(() => {
+    service = new ConversationManagerService();
+  });
+
+  it('generates customized speechText containing only the updated fields and asks for confirmation', async () => {
+    // 1. User starts a note creation flow and provides all required fields (title, content)
+    jest.spyOn(service as any, 'classify').mockResolvedValue({
+      intent: 'note',
+      entity: 'note',
+      command: 'create',
+      queryMode: 'list',
+      query: {},
+      fields: { title: 'Initial Title', content: 'Some content' },
+      language: 'en',
+    });
+
+    let res = await service.handle({
+      token: 'fake-token',
+      transcript: 'create note with title Initial Title and content Some content',
+      userId: 'user-1',
+    });
+
+    // The text contains the summary
+    expect(res.text).toContain('Title: Initial Title');
+    expect(res.text).toContain('Content: Some content');
+    expect(res.text).toContain('Should I create this note');
+    // Initial summary doesn't set speechText (falls back to res.text)
+    expect(res.speechText).toBeUndefined();
+
+    // 2. User says "change title to Updated Title"
+    jest.spyOn(service as any, 'classify').mockResolvedValue({
+      intent: 'note',
+      entity: 'note',
+      command: 'modify',
+      queryMode: 'list',
+      query: {},
+      fields: { title: 'Updated Title' },
+      language: 'en',
+    });
+
+    res = await service.handle({
+      token: 'fake-token',
+      transcript: 'change title to Updated Title',
+      userId: 'user-1',
+    });
+
+    // The UI text still contains the complete summary for visual display
+    expect(res.text).toContain('Title: Updated Title');
+    expect(res.text).toContain('Content: Some content');
+    expect(res.text).toContain('Should I create this note');
+
+    // The speechText is customized and only includes the updated field and the confirmation question
+    expect(res.speechText).toBeDefined();
+    expect(res.speechText).toContain('Updated.');
+    expect(res.speechText).toContain('Title: Updated Title');
+    expect(res.speechText).not.toContain('Content: Some content'); // Should not include other fields
+    expect(res.speechText).toContain('Should I create this note');
+  });
+});

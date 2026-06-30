@@ -193,12 +193,9 @@ export class VoiceSession {
       // Show the reply exactly as built (original wording/dates) to the client.
       this.socket.emit('assistant:text', response);
 
-      // Normalize machine values (ISO dates, timestamps, UUIDs) into natural,
-      // conversational speech ONLY for the spoken audio, so dates aren't read
-      // out character by character. Applied centrally so it covers every intent
-      // and response (tasks, events, notes, reminders, worklogs, queries, …).
+      const textToSpeak = response.speechText || response.text;
       const speechText = this.speechFormatter.sanitizeForSpeech(
-        response.text,
+        textToSpeak,
         response.language,
       );
       const audio = await this.tts.synthesize(speechText, response.language);
