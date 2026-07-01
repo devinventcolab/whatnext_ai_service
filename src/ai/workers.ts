@@ -62,7 +62,7 @@ export const WORKERS: Record<Intent, WorkerSpec> = {
       { name: 'title', required: true },
       {
         name: 'priority',
-        required: true,
+        required: false,
         enum: ['low', 'standard', 'high', 'extreme'],
         default: () => 'standard',
       },
