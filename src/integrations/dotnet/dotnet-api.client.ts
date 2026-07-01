@@ -15,6 +15,9 @@ export class DotnetApiClient {
       'GET',
       env.DOTNET_AUTH_ME_PATH,
     );
+
+    console.log("payload----------------------------------", payload)
+
     return {
       id: String(
         payload.id ??
