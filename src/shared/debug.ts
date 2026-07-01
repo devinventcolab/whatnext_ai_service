@@ -16,10 +16,8 @@ export function vlog(scope: string, message: string, detail?: unknown): void {
   const ts = new Date().toISOString().slice(11, 23);
   const prefix = `[${ts}] [voice:${scope}] ${message}`;
   if (detail !== undefined) {
-    // eslint-disable-next-line no-console
     console.log(prefix, detail);
   } else {
-    // eslint-disable-next-line no-console
     console.log(prefix);
   }
 }

@@ -89,18 +89,28 @@ describe('speech-friendly formatting', () => {
     const formatter = new SpeechFormatter();
 
     it('formats estimated hours in English correctly', () => {
-      expect(formatter.formatEstimatedTime(44.5, 'en')).toBe('1 day, 20 hours, 30 minutes');
+      expect(formatter.formatEstimatedTime(44.5, 'en')).toBe(
+        '1 day, 20 hours, 30 minutes',
+      );
       expect(formatter.formatEstimatedTime(39, 'en')).toBe('1 day, 15 hours');
-      expect(formatter.formatEstimatedTime(2.25, 'en')).toBe('2 hours, 15 minutes');
+      expect(formatter.formatEstimatedTime(2.25, 'en')).toBe(
+        '2 hours, 15 minutes',
+      );
       expect(formatter.formatEstimatedTime(0, 'en')).toBe('0 minutes');
       expect(formatter.formatEstimatedTime(24, 'en')).toBe('1 day');
-      expect(formatter.formatEstimatedTime(1.5, 'en')).toBe('1 hour, 30 minutes');
+      expect(formatter.formatEstimatedTime(1.5, 'en')).toBe(
+        '1 hour, 30 minutes',
+      );
     });
 
     it('formats estimated hours in Serbian correctly with pluralization rules', () => {
-      expect(formatter.formatEstimatedTime(44.5, 'sr')).toBe('1 dan, 20 sati, 30 minuta');
+      expect(formatter.formatEstimatedTime(44.5, 'sr')).toBe(
+        '1 dan, 20 sati, 30 minuta',
+      );
       expect(formatter.formatEstimatedTime(39, 'sr')).toBe('1 dan, 15 sati');
-      expect(formatter.formatEstimatedTime(2.25, 'sr')).toBe('2 sata, 15 minuta');
+      expect(formatter.formatEstimatedTime(2.25, 'sr')).toBe(
+        '2 sata, 15 minuta',
+      );
       expect(formatter.formatEstimatedTime(0, 'sr')).toBe('0 minuta');
       expect(formatter.formatEstimatedTime(25, 'sr')).toBe('1 dan, 1 sat');
       expect(formatter.formatEstimatedTime(26, 'sr')).toBe('1 dan, 2 sata');

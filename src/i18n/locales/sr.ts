@@ -151,8 +151,7 @@ const sr: TranslationTable = {
   'field.note.content.label': 'Sadržaj',
   'field.note.content.question': 'Šta treba da piše u belešci?',
   'field.note.type.label': 'Tip',
-  'field.note.type.question':
-    'Da li je Ideja, Podsetnik ili Lična?',
+  'field.note.type.question': 'Da li je Ideja, Podsetnik ili Lična?',
   'field.note.tag.label': 'Oznake',
   'field.note.tag.question': 'Želite li da dodate oznake?',
   'field.note.created_at.label': 'Vreme kreiranja',

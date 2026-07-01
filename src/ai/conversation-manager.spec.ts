@@ -169,7 +169,8 @@ describe('ConversationManagerService - Serbian Enum Handling and Translation', (
 
     res = await service.handle({
       token: 'fake-token',
-      transcript: 'Naziv je Godišnji sastanak, za sutra u 10, učesnici Petar i Milica',
+      transcript:
+        'Naziv je Godišnji sastanak, za sutra u 10, učesnici Petar i Milica',
       userId: 'user-1',
     });
 
@@ -199,8 +200,12 @@ describe('ConversationManagerService - Serbian Enum Handling and Translation', (
     });
 
     // It should display Serbian error message with localized event names
-    expect(res.text).toContain('Tip događaja mora biti jedna od sledećih vrednosti');
-    expect(res.text).toContain('Sastanak, Početni sastanak, Obuka, Radionica, Konferencija, Prezentacija, Intervju, Putovanje');
+    expect(res.text).toContain(
+      'Tip događaja mora biti jedna od sledećih vrednosti',
+    );
+    expect(res.text).toContain(
+      'Sastanak, Početni sastanak, Obuka, Radionica, Konferencija, Prezentacija, Intervju, Putovanje',
+    );
   });
 
   it('correctly maps event description aliases (like eventDescription, opis) to the internal description field', async () => {
@@ -229,7 +234,9 @@ describe('ConversationManagerService - Serbian Enum Handling and Translation', (
     });
 
     // The internal field for description should be populated with the value of 'opis'
-    expect((service as any).fields.description).toBe('Ovo je opis sastanka na srpskom');
+    expect((service as any).fields.description).toBe(
+      'Ovo je opis sastanka na srpskom',
+    );
     expect(res.text).toContain('Opis: Ovo je opis sastanka na srpskom');
   });
 });
@@ -310,7 +317,9 @@ describe('ConversationManagerService - Event Update Flow', () => {
     });
 
     // It should return the natural confirmation
-    expect(res.text).toBe("Done! I've updated the event by changing the title to **Novi Sastanak**.");
+    expect(res.text).toBe(
+      "Done! I've updated the event by changing the title to **Novi Sastanak**.",
+    );
 
     // It should return the tool result with the entire updated object
     expect(res.toolResults).toHaveLength(1);
@@ -344,7 +353,8 @@ describe('ConversationManagerService - SpeechText on Field Update', () => {
 
     let res = await service.handle({
       token: 'fake-token',
-      transcript: 'create note with title Initial Title and content Some content',
+      transcript:
+        'create note with title Initial Title and content Some content',
       userId: 'user-1',
     });
 
@@ -399,14 +409,17 @@ describe('ConversationManagerService - SpeechText on Field Update', () => {
 
     await service.handle({
       token: 'fake-token',
-      transcript: 'create a note title Book List and content Some books to read',
+      transcript:
+        'create a note title Book List and content Some books to read',
       userId: 'user-123',
       userName: 'Alice Smith',
     });
 
     expect((service as any).fields.created_by).toBe('Alice Smith');
     expect((service as any).fields.created_at).toBeDefined();
-    expect((service as any).fields.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+    expect((service as any).fields.created_at).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/,
+    );
 
     // Test case 2: userName is not provided
     service = new ConversationManagerService();
@@ -422,12 +435,15 @@ describe('ConversationManagerService - SpeechText on Field Update', () => {
 
     await service.handle({
       token: 'fake-token',
-      transcript: 'create a note title Book List 2 and content More books to read',
+      transcript:
+        'create a note title Book List 2 and content More books to read',
       userId: 'user-456',
     });
 
     expect((service as any).fields.created_by).toBe('user-456');
     expect((service as any).fields.created_at).toBeDefined();
-    expect((service as any).fields.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+    expect((service as any).fields.created_at).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/,
+    );
   });
 });

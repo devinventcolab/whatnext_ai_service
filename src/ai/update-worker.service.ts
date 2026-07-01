@@ -97,7 +97,8 @@ export class UpdateWorkerService {
         this.entity,
         input.query,
       );
-      if (!listed.ok) return { text: this.failure(listed.message, input.language) };
+      if (!listed.ok)
+        return { text: this.failure(listed.message, input.language) };
       this.matches = listed.value;
       if (!this.matches.length) {
         this.reset();
@@ -164,7 +165,12 @@ export class UpdateWorkerService {
       this.selected,
     );
     if (!result.ok) return { text: this.failure(result.message, language) };
-    const text = buildNaturalConfirmation(this.entity, this.patch, this.formatter, language);
+    const text = buildNaturalConfirmation(
+      this.entity,
+      this.patch,
+      this.formatter,
+      language,
+    );
     const updateTool = ENTITY_SPECS[this.entity].updateTool!;
     const updated = {
       toolName: updateTool,
@@ -277,7 +283,9 @@ function buildNaturalConfirmation(
   const entityNoun = languageManager.t(`noun.${entity}`, language);
 
   const changes = Object.entries(patch).map(([key, value]) => {
-    const label = languageManager.t(`field.${entity}.${key}.label`, language).toLowerCase();
+    const label = languageManager
+      .t(`field.${entity}.${key}.label`, language)
+      .toLowerCase();
     const formattedVal = formatter.formatValue(value, language);
 
     if (language === 'sr') {

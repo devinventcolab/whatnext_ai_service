@@ -16,15 +16,15 @@ export class DotnetApiClient {
       env.DOTNET_AUTH_ME_PATH,
     );
 
-    console.log("payload----------------------------------", payload)
+    console.log('payload----------------------------------', payload);
 
     return {
       id: String(
         payload.id ??
-        payload.userId ??
-        payload.sub ??
-        payload.nameid ??
-        payload[dotnetNameIdentifierClaim],
+          payload.userId ??
+          payload.sub ??
+          payload.nameid ??
+          payload[dotnetNameIdentifierClaim],
       ),
       email: payload.email ? String(payload.email) : undefined,
       name: payload.name
@@ -191,7 +191,7 @@ export class DotnetApiClient {
           body === undefined
             ? undefined
             : isFormData
-              ? (body as FormData)
+              ? body
               : JSON.stringify(body),
         signal: controller.signal,
       });
@@ -220,7 +220,7 @@ export class DotnetApiClient {
       throw new ApiError(
         response.status,
         extractErrorMessage(payload) ??
-        `Existing backend request failed (${response.status} ${response.statusText || 'Error'})`,
+          `Existing backend request failed (${response.status} ${response.statusText || 'Error'})`,
         details,
       );
     }
@@ -230,7 +230,7 @@ export class DotnetApiClient {
       throw new ApiError(
         502,
         extractErrorMessage(payload) ??
-        'Existing backend returned success=false',
+          'Existing backend returned success=false',
         details,
       );
     }
@@ -359,7 +359,12 @@ function noteTypeValue(value: unknown): number {
   const text = str(value, 'Reminder');
   const normalized = text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
   if (normalized === 'Idea' || normalized === 'Ideja') return 0;
-  if (normalized === 'Personal' || normalized === 'Lično' || normalized === 'Licno') return 2;
+  if (
+    normalized === 'Personal' ||
+    normalized === 'Lično' ||
+    normalized === 'Licno'
+  )
+    return 2;
   return 1;
 }
 
@@ -427,7 +432,18 @@ function toPriorityFlag(value: unknown): number {
   if (typeof value === 'boolean') return value ? 1 : 0;
   if (typeof value === 'number') return value === 0 ? 0 : 1;
   const s = str(value).toLowerCase();
-  return ['yes', 'true', '1', 'high', 'urgent', 'da', 'visok', 'hitno'].includes(s) ? 1 : 0;
+  return [
+    'yes',
+    'true',
+    '1',
+    'high',
+    'urgent',
+    'da',
+    'visok',
+    'hitno',
+  ].includes(s)
+    ? 1
+    : 0;
 }
 
 function toEventDuration(value: unknown, eventName: string): number {

@@ -44,7 +44,7 @@ export class TtsService {
     vlog('tts', 'openai', { language, model: env.OPENAI_TTS_MODEL });
     const response = await this.openai!.audio.speech.create({
       model: env.OPENAI_TTS_MODEL,
-      voice: env.OPENAI_TTS_VOICE as never,
+      voice: env.OPENAI_TTS_VOICE,
       input: text,
       response_format: 'mp3',
     });

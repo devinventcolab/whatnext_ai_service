@@ -86,7 +86,7 @@ export const WORKERS: Record<Intent, WorkerSpec> = {
         name: 'estimated_time',
         required: false,
         type: 'number',
-        default: () => TASK_DEFAULTS.estimated_time
+        default: () => TASK_DEFAULTS.estimated_time,
         // default: ({ now, fields }) =>
         //   estimateTaskHours(
         //     fields.startDate,
@@ -94,7 +94,11 @@ export const WORKERS: Record<Intent, WorkerSpec> = {
         //     isoLocal(atNine(now, 0)),
         //   ),
       },
-      { name: 'assignee', required: false, default: (ctx) => TASK_DEFAULTS.assignee(ctx) },
+      {
+        name: 'assignee',
+        required: false,
+        default: (ctx) => TASK_DEFAULTS.assignee(ctx),
+      },
       {
         name: 'startDate',
         required: false,

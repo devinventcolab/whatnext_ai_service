@@ -27,8 +27,8 @@ export function attachVoiceGateway(server: Server) {
   io.use(async (socket, next) => {
     const hasToken = Boolean(
       socket.handshake.auth?.token ||
-        socket.handshake.headers.authorization ||
-        socket.handshake.headers.token,
+      socket.handshake.headers.authorization ||
+      socket.handshake.headers.token,
     );
     // Always log the attempt BEFORE authenticating, so a hanging/failing auth
     // is visible even though io.on('connection') has not fired yet.
@@ -202,7 +202,7 @@ function toAudioBuffer(chunk: unknown): Buffer | undefined {
   if (typeof chunk === 'string') return Buffer.from(chunk, 'base64');
   if (chunk instanceof ArrayBuffer) return Buffer.from(chunk);
   if (ArrayBuffer.isView(chunk)) {
-    const view = chunk as ArrayBufferView;
+    const view = chunk;
     return Buffer.from(view.buffer, view.byteOffset, view.byteLength);
   }
   if (

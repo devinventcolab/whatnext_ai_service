@@ -46,26 +46,38 @@ export class AuthService {
   async authenticateToken(token?: string): Promise<AuthContext> {
     if (!token) throw new ApiError(401, 'Missing auth token');
 
+    let user: AuthUser;
+
     if (env.JWT_SHARED_SECRET) {
       const payload = jwt.verify(token, env.JWT_SHARED_SECRET) as Record<
         string,
         unknown
       >;
-      return { token, user: mapJwtPayloadToUser(payload) };
-    }
-
-    try {
-      const user = await this.dotnetApi.getCurrentUser(token);
-      return { token, user };
-    } catch (error) {
-      if (env.NODE_ENV === 'development') {
-        const decoded = jwt.decode(token);
-        if (decoded && typeof decoded === 'object') {
-          return { token, user: mapJwtPayloadToUser(decoded) };
+      user = mapJwtPayloadToUser(payload);
+    } else {
+      try {
+        user = await this.dotnetApi.getCurrentUser(token);
+      } catch (error) {
+        if (env.NODE_ENV === 'development') {
+          const decoded = jwt.decode(token);
+          if (decoded && typeof decoded === 'object') {
+            user = mapJwtPayloadToUser(decoded);
+          } else {
+            throw error;
+          }
+        } else {
+          throw error;
         }
       }
-
-      throw error;
     }
+
+    console.log('Login user details:', {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      roles: user.roles,
+    });
+
+    return { token, user };
   }
 }

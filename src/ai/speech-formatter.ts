@@ -87,7 +87,9 @@ export class SpeechFormatter {
         parts.push(`${hours} ${getSrPlural(hours, 'sat', 'sata', 'sati')}`);
       }
       if (minutes > 0) {
-        parts.push(`${minutes} ${getSrPlural(minutes, 'minut', 'minuta', 'minuta')}`);
+        parts.push(
+          `${minutes} ${getSrPlural(minutes, 'minut', 'minuta', 'minuta')}`,
+        );
       }
     } else {
       if (days > 0) {

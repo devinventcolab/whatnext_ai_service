@@ -261,7 +261,10 @@ export class ConversationManagerService {
       });
 
       const cleanedUpdatedFields: Record<string, unknown> = {};
-      const isUpdateOrModify = nlu.command === 'modify' || nlu.command === 'update' || nlu.command === 'provide';
+      const isUpdateOrModify =
+        nlu.command === 'modify' ||
+        nlu.command === 'update' ||
+        nlu.command === 'provide';
       if (isUpdateOrModify) {
         for (const [k, val] of Object.entries(nlu.fields ?? {})) {
           if (val !== undefined && val !== null && val !== '') {
@@ -274,10 +277,17 @@ export class ConversationManagerService {
         text: updateResult.text,
         operation: updateResult.updated ? 'update' : 'NA',
         toolResults: updateResult.updated
-          ? [{ toolName: updateResult.updated.toolName, result: updateResult.updated.result }]
+          ? [
+              {
+                toolName: updateResult.updated.toolName,
+                result: updateResult.updated.result,
+              },
+            ]
           : [],
         language: this.language,
-        ...(Object.keys(cleanedUpdatedFields).length > 0 ? { updatedFields: cleanedUpdatedFields } : {}),
+        ...(Object.keys(cleanedUpdatedFields).length > 0
+          ? { updatedFields: cleanedUpdatedFields }
+          : {}),
       };
     }
 
@@ -306,7 +316,9 @@ export class ConversationManagerService {
       const field = this.invalidField;
       this.invalidField = undefined;
       const localizedValues = field.allowed
-        .map((val) => languageManager.t(`enum.${val.toLowerCase()}`, this.language))
+        .map((val) =>
+          languageManager.t(`enum.${val.toLowerCase()}`, this.language),
+        )
         .join(', ');
       return this.rawReply(
         languageManager.t('msg.invalidEnum', this.language, {
@@ -338,7 +350,8 @@ export class ConversationManagerService {
         this.language,
       );
       const res = this.rawReply(`${ack}${question}`);
-      const isUpdateOrModify = nlu.command === 'modify' || nlu.command === 'provide';
+      const isUpdateOrModify =
+        nlu.command === 'modify' || nlu.command === 'provide';
       if (isUpdateOrModify && Object.keys(this.lastMergedFields).length > 0) {
         res.updatedFields = this.lastMergedFields;
       }
@@ -355,25 +368,29 @@ export class ConversationManagerService {
       noun: this.noun(this.intent),
     });
     const res = this.rawReply(`${lead}\n${this.summary()}\n\n${confirm}`);
-    const isUpdateOrModify = nlu.command === 'modify' || nlu.command === 'provide';
+    const isUpdateOrModify =
+      nlu.command === 'modify' || nlu.command === 'provide';
     if (isUpdateOrModify && Object.keys(this.lastMergedFields).length > 0) {
       res.updatedFields = this.lastMergedFields;
 
-      const intent = this.intent!;
+      const intent = this.intent;
       const updatedLines = Object.keys(this.lastMergedFields)
         .map((fieldName) => {
-          const f = WORKERS[intent].fields.find((field) => field.name === fieldName);
+          const f = WORKERS[intent].fields.find(
+            (field) => field.name === fieldName,
+          );
           if (!f) return '';
           const label = languageManager.t(
             `field.${intent}.${f.name}.label`,
             this.language,
           );
           const v = this.lastMergedFields[fieldName];
-          const value = f.name === 'estimated_time'
-            ? this.speechFormatter.formatEstimatedTime(v, this.language)
-            : f.enum
-              ? this.speechFormatter.formatValue(v, this.language)
-              : formatValue(v);
+          const value =
+            f.name === 'estimated_time'
+              ? this.speechFormatter.formatEstimatedTime(v, this.language)
+              : f.enum
+                ? this.speechFormatter.formatValue(v, this.language)
+                : formatValue(v);
           return `${label}: ${value}`;
         })
         .filter(Boolean);
@@ -533,7 +550,10 @@ export class ConversationManagerService {
       if (v === undefined || v === null || v === '') {
         v = incomingLower[f.name.toLowerCase()];
       }
-      if (f.name === 'description' && (v === undefined || v === null || v === '')) {
+      if (
+        f.name === 'description' &&
+        (v === undefined || v === null || v === '')
+      ) {
         v =
           incoming.eventDescription ??
           incoming.event_description ??
@@ -556,9 +576,9 @@ export class ConversationManagerService {
         const valArr = Array.isArray(v)
           ? v.map(String)
           : String(v)
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean);
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean);
         this.fields[f.name] = valArr;
         this.lastMergedFields[f.name] = valArr;
         applied = true;
