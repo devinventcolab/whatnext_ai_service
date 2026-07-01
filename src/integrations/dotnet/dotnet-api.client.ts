@@ -18,10 +18,10 @@ export class DotnetApiClient {
     return {
       id: String(
         payload.id ??
-          payload.userId ??
-          payload.sub ??
-          payload.nameid ??
-          payload[dotnetNameIdentifierClaim],
+        payload.userId ??
+        payload.sub ??
+        payload.nameid ??
+        payload[dotnetNameIdentifierClaim],
       ),
       email: payload.email ? String(payload.email) : undefined,
       name: payload.name
@@ -217,7 +217,7 @@ export class DotnetApiClient {
       throw new ApiError(
         response.status,
         extractErrorMessage(payload) ??
-          `Existing backend request failed (${response.status} ${response.statusText || 'Error'})`,
+        `Existing backend request failed (${response.status} ${response.statusText || 'Error'})`,
         details,
       );
     }
@@ -227,7 +227,7 @@ export class DotnetApiClient {
       throw new ApiError(
         502,
         extractErrorMessage(payload) ??
-          'Existing backend returned success=false',
+        'Existing backend returned success=false',
         details,
       );
     }
@@ -296,7 +296,8 @@ function toTaskPayload(raw: unknown): Payload {
     dueDate,
     startDate,
     priority: toTaskPriority(data.priority),
-    estimatedTime: toEstimatedHours(data.estimated_time, startDate, dueDate),
+    //estimatedTime: toEstimatedHours(data.estimated_time, startDate, dueDate),
+    est: toEstimatedHours(data.estimated_time, startDate, dueDate),
   };
 }
 
@@ -354,8 +355,8 @@ function noteTypeValue(value: unknown): number {
   if (typeof value === 'number') return value;
   const text = str(value, 'Reminder');
   const normalized = text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
-  if (normalized === 'Idea') return 0;
-  if (normalized === 'Personal') return 2;
+  if (normalized === 'Idea' || normalized === 'Ideja') return 0;
+  if (normalized === 'Personal' || normalized === 'Lično' || normalized === 'Licno') return 2;
   return 1;
 }
 
@@ -407,22 +408,23 @@ function toWorklogFormData(raw: unknown): FormData {
 
 function toTaskPriority(value: unknown): number {
   const p = str(value, 'standard').toLowerCase();
-  if (p === 'extreme') return 4;
-  if (p === 'high') return 1;
-  if (p === 'low') return 3;
+  if (p === 'extreme' || p === 'ekstreman') return 4;
+  if (p === 'high' || p === 'visok') return 1;
+  if (p === 'low' || p === 'nizak') return 3;
   return 2;
 }
 
 function toUrgent(value: unknown): boolean {
   if (typeof value === 'boolean') return value;
-  return str(value, 'normal').toLowerCase() === 'urgent';
+  const s = str(value, 'normal').toLowerCase();
+  return s === 'urgent' || s === 'hitno';
 }
 
 function toPriorityFlag(value: unknown): number {
   if (typeof value === 'boolean') return value ? 1 : 0;
   if (typeof value === 'number') return value === 0 ? 0 : 1;
   const s = str(value).toLowerCase();
-  return ['yes', 'true', '1', 'high', 'urgent'].includes(s) ? 1 : 0;
+  return ['yes', 'true', '1', 'high', 'urgent', 'da', 'visok', 'hitno'].includes(s) ? 1 : 0;
 }
 
 function toEventDuration(value: unknown, eventName: string): number {
@@ -435,6 +437,12 @@ function toEventDuration(value: unknown, eventName: string): number {
     Presentation: 90,
     Interview: 45,
     Trip: 120,
+    Obuka: 180,
+    Radionica: 120,
+    Konferencija: 240,
+    Prezentacija: 90,
+    Intervju: 45,
+    Putovanje: 120,
   };
   return defaults[eventName] ?? 60;
 }

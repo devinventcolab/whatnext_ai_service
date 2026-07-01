@@ -419,10 +419,10 @@ export class ConversationManagerService {
       '- "queryMode": "count" for how many/count; "list" for show/list; "search" when matching by title/topic/date; "detail" for one record details.',
       '- "query": include text/status/dateFrom/dateTo/limit filters explicitly requested. For tomorrow/yesterday/today ranges, emit ISO dateFrom/dateTo.',
       '- "selection": when command is select, copy the selection phrase (e.g. "first one", "project note", or an ID).',
-      '- "fields": include ONLY fields explicitly mentioned this turn, using the exact field names above. When updating/modifying any intent, detect only the keys explicitly requested to be changed and do not include any other fields (e.g. do not include "title" or "dueDate" unless the user explicitly requested to update/change them). Use allowed enum values verbatim. "duration" is minutes (number); "estimated_time" is hours (number); dates/times must be ISO 8601 strings (YYYY-MM-DD for date-only when no time is specified, YYYY-MM-DDTHH:mm:ss when time is explicitly mentioned). Field VALUES should stay in the user\'s language. Do not invent values; omit unknowns (except for the note "tag" field: if not explicitly mentioned, you MUST intelligently infer and set a relevant tag keyword, e.g. "Books", "Work", "Personal", "Study", based on the content or title). IMPORTANT: For long text fields (such as "content", "description", or "objective"), you MUST extract the text exactly verbatim as provided in the user\'s transcript. Do NOT truncate, summarize, shorten, or paraphrase the text in any way. Keep every word completely intact.',
+      '- "fields": include ONLY fields explicitly mentioned this turn, using the exact field names above. When updating/modifying any intent, detect only the keys explicitly requested to be changed and do not include any other fields (e.g. do not include "title" or "dueDate" unless the user explicitly requested to update/change them). Use allowed enum values verbatim. "duration" is minutes (number); "estimated_time" is hours (number); dates/times must be ISO 8601 strings (YYYY-MM-DD for date-only when no time is specified, YYYY-MM-DDTHH:mm:ss when time is explicitly mentioned). Field VALUES should stay in the user\'s language. Do not invent values; omit unknowns (except for the note "tag" and "type" fields: if they are not explicitly mentioned in the user transcript, you MUST intelligently infer them based on the content or title. For "type", choose the most suitable value from [Idea, Reminder, Personal]. For "tag", generate a single-word keyword representing the topic, e.g., "Work", "Personal", "Study", "Ideas", "Books"). IMPORTANT: For long text fields (such as "content", "description", or "objective"), you MUST extract the text exactly verbatim as provided in the user\'s transcript. Do NOT truncate, summarize, shorten, or paraphrase the text in any way. Keep every word completely intact.',
       '- When a user specifies multiple fields in a single sentence (e.g., "title will be what next project will be mobile app domain will be finance"), do NOT merge the subsequent field names (like "project", "domain") or their values into previous fields (like "title"). Correctly identify where each field begins and ends, and extract them separately.',
       '- NEVER infer or default the task "assignee". Only set "assignee" when the user explicitly names who is responsible (e.g. "assign it to John", "give it to Sara"). Do NOT set it to "me", the current user, or anyone the user did not name — leave it out so the assistant can ask.',
-      '- For the "note" intent, if the user does not explicitly specify a "tag" value, you MUST analyze the note title and content, generate a highly relevant single-word tag keyword (e.g. "Books", "Work", "Personal", "Study", "Ideas"), and populate it in the "tag" field inside "fields".',
+      '- For the "note" intent, if the user does not explicitly specify a "tag" or "type" value, you MUST analyze the note title and content, generate a highly relevant single-word tag keyword (e.g. "Books", "Work", "Personal", "Study", "Ideas") for the "tag" field, and select the most appropriate type ("Idea", "Reminder", or "Personal") for the "type" field inside "fields".',
       '- "reply": only set this (in the user\'s language) with a short clarification when the user is off-topic or ambiguous; otherwise use an empty string.',
       'Examples:',
       '1. User transcript: "create a task for me title will be what next project will be mobile app domain will be finance assigning will be Rajshree priority will be low due date will be 28 June 2026 objective will test today and description need complete"',
@@ -579,8 +579,16 @@ export class ConversationManagerService {
           }
         }
         if (match) {
-          this.fields[f.name] = match;
-          this.lastMergedFields[f.name] = match;
+          let finalVal = match;
+          if (this.language === 'sr') {
+            const key = `enum.${match.toLowerCase()}`;
+            const translated = languageManager.t(key, 'sr');
+            if (translated !== key) {
+              finalVal = translated;
+            }
+          }
+          this.fields[f.name] = finalVal;
+          this.lastMergedFields[f.name] = finalVal;
           applied = true;
         } else {
           this.invalidField = { name: f.name, allowed: f.enum };

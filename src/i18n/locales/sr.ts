@@ -103,7 +103,7 @@ const sr: TranslationTable = {
   'enum.reminder': 'Podsetnik',
   'enum.personal': 'Lično',
   'enum.meeting': 'Sastanak',
-  'enum.kick-off': 'Kick-off',
+  'enum.kick-off': 'Početni sastanak',
   'enum.training': 'Obuka',
   'enum.workshop': 'Radionica',
   'enum.conference': 'Konferencija',

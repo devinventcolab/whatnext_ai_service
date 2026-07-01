@@ -26,7 +26,9 @@ export function attachVoiceGateway(server: Server) {
 
   io.use(async (socket, next) => {
     const hasToken = Boolean(
-      socket.handshake.auth?.token || socket.handshake.headers.authorization,
+      socket.handshake.auth?.token ||
+        socket.handshake.headers.authorization ||
+        socket.handshake.headers.token,
     );
     // Always log the attempt BEFORE authenticating, so a hanging/failing auth
     // is visible even though io.on('connection') has not fired yet.
@@ -42,6 +44,7 @@ export function attachVoiceGateway(server: Server) {
           socket.handshake.headers.authorization
             ?.toString()
             .replace('Bearer ', '') ??
+          socket.handshake.headers.token ??
           '',
       );
       socket.data.auth = await authService.authenticateToken(token);

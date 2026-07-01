@@ -128,7 +128,7 @@ describe('ConversationManagerService - Serbian Enum Handling and Translation', (
     service = new ConversationManagerService();
   });
 
-  it('maps Serbian eventName inputs to English canonical enums and displays them localized in the summary', async () => {
+  it('keeps Serbian eventName inputs as Serbian and displays them localized in the summary', async () => {
     // 1. Start the event creation flow by providing "eventName" as "Sastanak"
     jest.spyOn(service as any, 'classify').mockResolvedValue({
       intent: 'event',
@@ -148,8 +148,8 @@ describe('ConversationManagerService - Serbian Enum Handling and Translation', (
 
     // It should switch active language to Serbian
     expect(service.activeLanguage).toBe('sr');
-    // The internal field for eventName should have been mapped to "Meeting"
-    expect((service as any).fields.eventName).toBe('Meeting');
+    // The internal field for eventName should have been mapped to "Sastanak"
+    expect((service as any).fields.eventName).toBe('Sastanak');
 
     // 2. Provide the remaining required fields for the event: title, eventDate, participants
     jest.spyOn(service as any, 'classify').mockResolvedValue({
@@ -200,7 +200,7 @@ describe('ConversationManagerService - Serbian Enum Handling and Translation', (
 
     // It should display Serbian error message with localized event names
     expect(res.text).toContain('Tip događaja mora biti jedna od sledećih vrednosti');
-    expect(res.text).toContain('Sastanak, Kick-off, Obuka, Radionica, Konferencija, Prezentacija, Intervju, Putovanje');
+    expect(res.text).toContain('Sastanak, Početni sastanak, Obuka, Radionica, Konferencija, Prezentacija, Intervju, Putovanje');
   });
 
   it('correctly maps event description aliases (like eventDescription, opis) to the internal description field', async () => {

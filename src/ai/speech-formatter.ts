@@ -170,9 +170,47 @@ export class SpeechFormatter {
   }
 
   private humanizeEnum(value: string, language: SupportedLanguage): string {
-    const key = `enum.${value.toLowerCase()}`;
-    const translated = languageManager.t(key, language);
-    if (translated !== key) return translated;
+    const s = value.trim().toLowerCase();
+    const canonicalKeys = [
+      'meeting',
+      'kick-off',
+      'training',
+      'workshop',
+      'conference',
+      'presentation',
+      'interview',
+      'trip',
+      'low',
+      'standard',
+      'high',
+      'extreme',
+      'normal',
+      'urgent',
+      'idea',
+      'reminder',
+      'personal',
+    ];
+
+    let matchedKey: string | undefined;
+    for (const k of canonicalKeys) {
+      if (k === s) {
+        matchedKey = k;
+        break;
+      }
+      for (const lang of ['en', 'sr'] as const) {
+        const translated = languageManager.t(`enum.${k}`, lang);
+        if (translated.toLowerCase() === s) {
+          matchedKey = k;
+          break;
+        }
+      }
+      if (matchedKey) break;
+    }
+
+    if (matchedKey) {
+      return languageManager.t(`enum.${matchedKey}`, language);
+    }
+
     return value.replace(/[_-]+/g, ' ');
   }
 

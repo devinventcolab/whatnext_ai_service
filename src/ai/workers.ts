@@ -46,6 +46,7 @@ const TASK_DEFAULTS = {
   domain: 'General',
   project: 'WhatNext app',
   estimated_time: 1,
+  assignee: "me"
 };
 
 /**
@@ -93,7 +94,7 @@ export const WORKERS: Record<Intent, WorkerSpec> = {
         //     isoLocal(atNine(now, 0)),
         //   ),
       },
-      { name: 'assignee', required: true },
+      { name: 'assignee', required: false, default: () => TASK_DEFAULTS.assignee },
       {
         name: 'startDate',
         required: false,

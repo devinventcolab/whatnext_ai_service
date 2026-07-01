@@ -10,9 +10,25 @@ import { z } from 'zod';
 const confirmed = z.object({ confirmed: z.literal(true) });
 const idSchema = z.object({ id: z.string().min(1) }).merge(confirmed);
 
-const taskPriority = z.enum(['low', 'standard', 'high', 'extreme']);
-const taskUrgency = z.enum(['normal', 'urgent']);
-const noteType = z.enum(['Idea', 'Reminder', 'Personal']);
+const taskPriority = z.enum([
+  'low',
+  'standard',
+  'high',
+  'extreme',
+  'nizak',
+  'standardan',
+  'visok',
+  'ekstreman',
+]);
+const taskUrgency = z.enum(['normal', 'urgent', 'normalno', 'hitno']);
+const noteType = z.enum([
+  'Idea',
+  'Reminder',
+  'Personal',
+  'Ideja',
+  'Podsetnik',
+  'Lično',
+]);
 const eventName = z.enum([
   'Meeting',
   'Kick-off',
@@ -22,6 +38,15 @@ const eventName = z.enum([
   'Presentation',
   'Interview',
   'Trip',
+  'Sastanak',
+  'Početni sastanak',
+  'Pocetni sastanak',
+  'Obuka',
+  'Radionica',
+  'Konferencija',
+  'Prezentacija',
+  'Intervju',
+  'Putovanje',
 ]);
 
 export const toolSchemas = {
