@@ -21,10 +21,10 @@ export class DotnetApiClient {
     return {
       id: String(
         payload.id ??
-          payload.userId ??
-          payload.sub ??
-          payload.nameid ??
-          payload[dotnetNameIdentifierClaim],
+        payload.userId ??
+        payload.sub ??
+        payload.nameid ??
+        payload[dotnetNameIdentifierClaim],
       ),
       email: payload.email ? String(payload.email) : undefined,
       name: payload.name
@@ -220,7 +220,7 @@ export class DotnetApiClient {
       throw new ApiError(
         response.status,
         extractErrorMessage(payload) ??
-          `Existing backend request failed (${response.status} ${response.statusText || 'Error'})`,
+        `Existing backend request failed (${response.status} ${response.statusText || 'Error'})`,
         details,
       );
     }
@@ -230,7 +230,7 @@ export class DotnetApiClient {
       throw new ApiError(
         502,
         extractErrorMessage(payload) ??
-          'Existing backend returned success=false',
+        'Existing backend returned success=false',
         details,
       );
     }
@@ -300,7 +300,9 @@ function toTaskPayload(raw: unknown): Payload {
     startDate,
     priority: toTaskPriority(data.priority),
     //estimatedTime: toEstimatedHours(data.estimated_time, startDate, dueDate),
-    est: toEstimatedHours(data.estimated_time, startDate, dueDate),
+    est: data.estimated_time !== undefined && data.estimated_time !== null
+      ? String(data.estimated_time)
+      : '1',
   };
 }
 
