@@ -283,8 +283,10 @@ function toTaskPayload(raw: unknown): Payload {
   const data = asPayload(raw);
   const domain = str(data.domain, 'General');
   const project = str(data.project, domain);
-  const startDate = str(data.startDate ?? data.start_date, defaultTodayNine());
-  const dueDate = str(data.dueDate ?? data.due_date, new Date().toISOString());
+  const startDate = toCetIsoString(
+    str(data.startDate ?? data.start_date, defaultToday()),
+  );
+  const dueDate = toCetIsoString(str(data.dueDate ?? data.due_date, new Date().toISOString()));
 
   return {
     title: str(data.title),
@@ -326,9 +328,11 @@ function toTaskUpdateFormData(id: string, raw: unknown): FormData {
   form.append('Suggested', str(data.Suggested ?? data.suggested));
   form.append(
     'DeadlineDate',
-    str(
-      data.DeadlineDate ?? data.dueDate ?? data.deadlineDate,
-      new Date().toISOString(),
+    toCetIsoString(
+      str(
+        data.DeadlineDate ?? data.dueDate ?? data.deadlineDate,
+        new Date().toISOString(),
+      ),
     ),
   );
   form.append('TaskFile', str(data.TaskFile ?? data.taskFile));
@@ -375,9 +379,11 @@ function toEventPayload(raw: unknown): Payload {
   const eventName = str(data.eventName ?? data.title);
   const payload: Payload = {
     eventName,
-    eventDate: str(
-      data.eventDate ?? data.start_time ?? data.date,
-      new Date().toISOString(),
+    eventDate: toCetIsoString(
+      str(
+        data.eventDate ?? data.start_time ?? data.date,
+        new Date().toISOString(),
+      ),
     ),
     isPriority: toPriorityFlag(data.isPriority ?? data.priority),
     title: str(data.title ?? data.eventName),
@@ -406,8 +412,8 @@ function toWorklogFormData(raw: unknown): FormData {
   form.append('CompetenceID', str(data.CompetenceID, '1'));
   form.append('What', str(data.What));
   form.append('How', str(data.How));
-  form.append('StartTime', str(data.StartTime, new Date().toISOString()));
-  form.append('EndTime', str(data.EndTime, new Date().toISOString()));
+  form.append('StartTime', toCetIsoString(str(data.StartTime, new Date().toISOString())));
+  form.append('EndTime', toCetIsoString(str(data.EndTime, new Date().toISOString())));
   form.append('RealizationTime', str(data.RealizationTime, '0'));
   form.append('Comment', str(data.Comment));
   form.append('TaskName', str(data.TaskName, 'General'));
@@ -491,10 +497,99 @@ function toHashtagString(content: string, manual: unknown): string {
   return Array.from(new Set([...fromContent, ...fromManual])).join(',');
 }
 
-function defaultTodayNine(): string {
+function defaultToday(): string {
   const d = new Date();
-  d.setHours(9, 0, 0, 0);
-  return d.toISOString();
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const parts = formatter.formatToParts(d);
+  const year = parts.find((p) => p.type === 'year')!.value;
+  const month = parts.find((p) => p.type === 'month')!.value;
+  const day = parts.find((p) => p.type === 'day')!.value;
+  return `${year}-${month}-${day}`;
+}
+
+export function toCetIsoString(input: Date | string, defaultTime = '00:00:00'): string {
+  let date: Date;
+  let hasTimezone = false;
+
+  if (input instanceof Date) {
+    date = input;
+    hasTimezone = true;
+  } else {
+    const s = String(input).trim();
+    if (!s) return new Date().toISOString();
+
+    hasTimezone = /Z|[+-]\d{2}:?\d{2}$/i.test(s);
+
+    if (!hasTimezone) {
+      const isoString = s.includes('T') ? s : `${s}T${defaultTime}`;
+      const match = isoString.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
+      if (match) {
+        const [_, y, m, d, hh, mm, ss] = match;
+        const utcDate = new Date(`${y}-${m}-${d}T${hh}:${mm}:${ss}Z`);
+        const tempUtc = new Date(utcDate.toLocaleString('en-US', { timeZone: 'UTC' }));
+        const tempCet = new Date(utcDate.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+        const offsetMs = tempCet.getTime() - tempUtc.getTime();
+        const cetInstant = new Date(utcDate.getTime() - offsetMs);
+
+        const cetOffsetMs =
+          new Date(cetInstant.toLocaleString('en-US', { timeZone: 'Europe/Paris' })).getTime() -
+          new Date(cetInstant.toLocaleString('en-US', { timeZone: 'UTC' })).getTime();
+        const offsetMins = Math.round(cetOffsetMs / 60000);
+        const sign = offsetMins >= 0 ? '+' : '-';
+        const absOffset = Math.abs(offsetMins);
+        const hours = String(Math.floor(absOffset / 60)).padStart(2, '0');
+        const mins = String(absOffset % 60).padStart(2, '0');
+
+        return `${y}-${m}-${d}T${hh}:${mm}:${ss}${sign}${hours}:${mins}`;
+      }
+    }
+    date = new Date(s);
+  }
+
+  if (Number.isNaN(date.getTime())) {
+    return String(input);
+  }
+
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(date);
+  const getPart = (type: string) => parts.find((p) => p.type === type)!.value;
+
+  const y = getPart('year');
+  const m = getPart('month');
+  const d = getPart('day');
+  let hh = getPart('hour');
+  const mm = getPart('minute');
+  const ss = getPart('second');
+
+  if (hh === '24') {
+    hh = '00';
+  }
+
+  const tempUtc = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
+  const tempCet = new Date(date.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+  const offsetMs = tempCet.getTime() - tempUtc.getTime();
+  const offsetMins = Math.round(offsetMs / 60000);
+  const sign = offsetMins >= 0 ? '+' : '-';
+  const absOffset = Math.abs(offsetMins);
+  const hours = String(Math.floor(absOffset / 60)).padStart(2, '0');
+  const mins = String(absOffset % 60).padStart(2, '0');
+
+  return `${y}-${m}-${d}T${hh}:${mm}:${ss}${sign}${hours}:${mins}`;
 }
 
 function toEstimatedHours(

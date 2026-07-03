@@ -367,7 +367,7 @@ export class ConversationManagerService {
     const confirm = languageManager.t('msg.confirmCreate', this.language, {
       noun: this.noun(this.intent),
     });
-    const res = this.rawReply(`${lead}\n${this.summary()}\n\n${confirm}`);
+    const res = this.rawReply(`${lead}\n${this.summary(input.userId, input.userName)}\n\n${confirm}`);
     const isUpdateOrModify =
       nlu.command === 'modify' || nlu.command === 'provide';
     if (isUpdateOrModify && Object.keys(this.lastMergedFields).length > 0) {
@@ -385,12 +385,15 @@ export class ConversationManagerService {
             this.language,
           );
           const v = this.lastMergedFields[fieldName];
-          const value =
+          let value =
             f.name === 'estimated_time'
               ? this.speechFormatter.formatEstimatedTime(v, this.language)
               : f.enum
                 ? this.speechFormatter.formatValue(v, this.language)
                 : formatValue(v);
+          if (f.name === 'assignee' && v !== undefined && v !== null && v !== '' && String(v) === input.userId) {
+            value = input.userName || languageManager.t('enum.me', this.language);
+          }
           return `${label}: ${value}`;
         })
         .filter(Boolean);
@@ -650,7 +653,7 @@ export class ConversationManagerService {
       .map((f) => f.name);
   }
 
-  private summary(): string {
+  private summary(userId: string, userName?: string): string {
     const intent = this.intent!;
     const header = languageManager.t('msg.summaryHeader', this.language, {
       noun: this.noun(intent),
@@ -666,13 +669,17 @@ export class ConversationManagerService {
         v === null ||
         v === '' ||
         (Array.isArray(v) && v.length === 0);
-      const value = isEmpty
+      let value = isEmpty
         ? languageManager.t('msg.notSet', this.language)
         : f.name === 'estimated_time'
           ? this.speechFormatter.formatEstimatedTime(v, this.language)
           : f.enum
             ? this.speechFormatter.formatValue(v, this.language)
             : formatValue(v);
+
+      if (f.name === 'assignee' && !isEmpty && String(v) === userId) {
+        value = userName || languageManager.t('enum.me', this.language);
+      }
       return `- ${label}: ${value}`;
     });
     return `${header}\n${lines.join('\n')}`;

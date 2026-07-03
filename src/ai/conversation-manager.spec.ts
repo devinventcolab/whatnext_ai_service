@@ -447,3 +447,59 @@ describe('ConversationManagerService - SpeechText on Field Update', () => {
     );
   });
 });
+
+describe('ConversationManagerService - Task Defaults and Assignee/StartDate Formatting', () => {
+  let service: ConversationManagerService;
+
+  beforeEach(() => {
+    service = new ConversationManagerService();
+  });
+
+  it('defaults the task startDate to date-only string YYYY-MM-DD and resolves assignee to "Me" or user name', async () => {
+    jest.spyOn(service as any, 'classify').mockResolvedValue({
+      intent: 'task',
+      entity: 'task',
+      command: 'create',
+      queryMode: 'list',
+      query: {},
+      fields: { title: 'Do laundry', dueDate: '2026-07-04' },
+      language: 'en',
+    });
+
+    const res = await service.handle({
+      token: 'fake-token',
+      transcript: 'create task Do laundry',
+      userId: 'user-789',
+      userName: 'John Doe',
+    });
+
+    const startDateVal = (service as any).fields.startDate;
+    expect(startDateVal).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(res.text).toContain(`Start date: ${startDateVal}`);
+
+    expect((service as any).fields.assignee).toBe('John Doe');
+    expect(res.text).toContain('Assignee: John Doe');
+  });
+
+  it('resolves assignee to "Me" if assignee equals userId and no userName is provided', async () => {
+    jest.spyOn(service as any, 'classify').mockResolvedValue({
+      intent: 'task',
+      entity: 'task',
+      command: 'create',
+      queryMode: 'list',
+      query: {},
+      fields: { title: 'Do laundry', dueDate: '2026-07-04' },
+      language: 'en',
+    });
+
+    const res = await service.handle({
+      token: 'fake-token',
+      transcript: 'create task Do laundry',
+      userId: 'user-789',
+    });
+
+    expect((service as any).fields.assignee).toBe('user-789');
+    expect(res.text).toContain('Assignee: Me');
+  });
+});
+

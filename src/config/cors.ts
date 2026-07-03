@@ -1,6 +1,7 @@
 import { env } from './env';
 
-const localhostOriginPattern = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
+const localhostOriginPattern =
+  /^(?:https?|wss?):\/\/(localhost|127\.\d+\.\d+(?:\.\d+)?)(:\d+)?$/i;
 const allowedOrigins = env.APP_ORIGIN.split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);

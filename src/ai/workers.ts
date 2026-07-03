@@ -102,7 +102,7 @@ export const WORKERS: Record<Intent, WorkerSpec> = {
       {
         name: 'startDate',
         required: false,
-        default: ({ now }) => isoLocal(atNine(now, 0)),
+        default: ({ now }) => dateOnlyLocal(now),
       },
       {
         name: 'dueDate',
@@ -206,6 +206,11 @@ function isoLocal(d: Date): string {
     `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
     `T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
   );
+}
+
+/** Formats a Date as local `YYYY-MM-DD`. */
+function dateOnlyLocal(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 /** Returns `now` shifted by `addDays` days, set to 09:00:00. */

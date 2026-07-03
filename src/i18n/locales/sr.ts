@@ -89,6 +89,7 @@ const sr: TranslationTable = {
   'duration.hours': '{count} sati',
   'duration.hoursMinutes': '{hours} sati i {minutes} minuta',
   'speech.hiddenId': 'interni ID je sakriven',
+  'enum.me': 'Ja',
   'enum.low': 'nizak',
   'enum.standard': 'standardan',
   'enum.high': 'visok',
