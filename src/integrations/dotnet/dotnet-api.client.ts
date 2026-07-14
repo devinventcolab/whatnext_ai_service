@@ -21,10 +21,10 @@ export class DotnetApiClient {
     return {
       id: String(
         payload.id ??
-        payload.userId ??
-        payload.sub ??
-        payload.nameid ??
-        payload[dotnetNameIdentifierClaim],
+          payload.userId ??
+          payload.sub ??
+          payload.nameid ??
+          payload[dotnetNameIdentifierClaim],
       ),
       email: payload.email ? String(payload.email) : undefined,
       name: payload.name
@@ -220,7 +220,7 @@ export class DotnetApiClient {
       throw new ApiError(
         response.status,
         extractErrorMessage(payload) ??
-        `Existing backend request failed (${response.status} ${response.statusText || 'Error'})`,
+          `Existing backend request failed (${response.status} ${response.statusText || 'Error'})`,
         details,
       );
     }
@@ -230,7 +230,7 @@ export class DotnetApiClient {
       throw new ApiError(
         502,
         extractErrorMessage(payload) ??
-        'Existing backend returned success=false',
+          'Existing backend returned success=false',
         details,
       );
     }
@@ -286,7 +286,9 @@ function toTaskPayload(raw: unknown): Payload {
   const startDate = toCetIsoString(
     str(data.startDate ?? data.start_date, defaultToday()),
   );
-  const dueDate = toCetIsoString(str(data.dueDate ?? data.due_date, new Date().toISOString()));
+  const dueDate = toCetIsoString(
+    str(data.dueDate ?? data.due_date, new Date().toISOString()),
+  );
 
   return {
     title: str(data.title),
@@ -302,9 +304,10 @@ function toTaskPayload(raw: unknown): Payload {
     startDate,
     priority: toTaskPriority(data.priority),
     //estimatedTime: toEstimatedHours(data.estimated_time, startDate, dueDate),
-    est: data.estimated_time !== undefined && data.estimated_time !== null
-      ? String(data.estimated_time)
-      : '1',
+    est:
+      data.estimated_time !== undefined && data.estimated_time !== null
+        ? String(data.estimated_time)
+        : '1',
   };
 }
 
@@ -412,8 +415,14 @@ function toWorklogFormData(raw: unknown): FormData {
   form.append('CompetenceID', str(data.CompetenceID, '1'));
   form.append('What', str(data.What));
   form.append('How', str(data.How));
-  form.append('StartTime', toCetIsoString(str(data.StartTime, new Date().toISOString())));
-  form.append('EndTime', toCetIsoString(str(data.EndTime, new Date().toISOString())));
+  form.append(
+    'StartTime',
+    toCetIsoString(str(data.StartTime, new Date().toISOString())),
+  );
+  form.append(
+    'EndTime',
+    toCetIsoString(str(data.EndTime, new Date().toISOString())),
+  );
   form.append('RealizationTime', str(data.RealizationTime, '0'));
   form.append('Comment', str(data.Comment));
   form.append('TaskName', str(data.TaskName, 'General'));
@@ -512,7 +521,10 @@ function defaultToday(): string {
   return `${year}-${month}-${day}`;
 }
 
-export function toCetIsoString(input: Date | string, defaultTime = '00:00:00'): string {
+export function toCetIsoString(
+  input: Date | string,
+  defaultTime = '00:00:00',
+): string {
   let date: Date;
   let hasTimezone = false;
 
@@ -527,18 +539,28 @@ export function toCetIsoString(input: Date | string, defaultTime = '00:00:00'): 
 
     if (!hasTimezone) {
       const isoString = s.includes('T') ? s : `${s}T${defaultTime}`;
-      const match = isoString.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
+      const match = isoString.match(
+        /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/,
+      );
       if (match) {
         const [_, y, m, d, hh, mm, ss] = match;
         const utcDate = new Date(`${y}-${m}-${d}T${hh}:${mm}:${ss}Z`);
-        const tempUtc = new Date(utcDate.toLocaleString('en-US', { timeZone: 'UTC' }));
-        const tempCet = new Date(utcDate.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+        const tempUtc = new Date(
+          utcDate.toLocaleString('en-US', { timeZone: 'UTC' }),
+        );
+        const tempCet = new Date(
+          utcDate.toLocaleString('en-US', { timeZone: 'Europe/Paris' }),
+        );
         const offsetMs = tempCet.getTime() - tempUtc.getTime();
         const cetInstant = new Date(utcDate.getTime() - offsetMs);
 
         const cetOffsetMs =
-          new Date(cetInstant.toLocaleString('en-US', { timeZone: 'Europe/Paris' })).getTime() -
-          new Date(cetInstant.toLocaleString('en-US', { timeZone: 'UTC' })).getTime();
+          new Date(
+            cetInstant.toLocaleString('en-US', { timeZone: 'Europe/Paris' }),
+          ).getTime() -
+          new Date(
+            cetInstant.toLocaleString('en-US', { timeZone: 'UTC' }),
+          ).getTime();
         const offsetMins = Math.round(cetOffsetMs / 60000);
         const sign = offsetMins >= 0 ? '+' : '-';
         const absOffset = Math.abs(offsetMins);
@@ -581,7 +603,9 @@ export function toCetIsoString(input: Date | string, defaultTime = '00:00:00'): 
   }
 
   const tempUtc = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
-  const tempCet = new Date(date.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+  const tempCet = new Date(
+    date.toLocaleString('en-US', { timeZone: 'Europe/Paris' }),
+  );
   const offsetMs = tempCet.getTime() - tempUtc.getTime();
   const offsetMins = Math.round(offsetMs / 60000);
   const sign = offsetMins >= 0 ? '+' : '-';

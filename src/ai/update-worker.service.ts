@@ -9,6 +9,7 @@ import {
 } from './entities';
 import { EntityService } from './entity-service';
 import { SpeechFormatter } from './speech-formatter';
+import { normalizeReminder } from './workers';
 
 type UpdatePhase = 'idle' | 'selecting' | 'collecting_changes' | 'confirming';
 
@@ -183,7 +184,17 @@ export class UpdateWorkerService {
   private mergePatch(patch: Record<string, unknown>) {
     for (const [key, value] of Object.entries(patch ?? {})) {
       if (value === undefined || value === null || value === '') continue;
-      this.patch[key] = value;
+      if (key === 'reminders') {
+        const valArr = Array.isArray(value)
+          ? value.map(String)
+          : String(value)
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean);
+        this.patch[key] = valArr.map(normalizeReminder);
+      } else {
+        this.patch[key] = value;
+      }
     }
   }
 

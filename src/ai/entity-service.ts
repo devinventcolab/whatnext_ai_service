@@ -99,7 +99,7 @@ export class EntityService {
     existing?: EntityRecord,
   ): Promise<EntityServiceResult<unknown>> {
     const path = updatePath(entity);
-    if (!path) return notConfigured(entity, 'update');
+    if (!path && entity !== 'worklog') return notConfigured(entity, 'update');
     try {
       const payload = { ...(existing?.raw ?? {}), ...patch, id };
       const value =
@@ -109,12 +109,14 @@ export class EntityService {
             ? await this.dotnetApi.updateNote(auth.token, id, payload)
             : entity === 'event'
               ? await this.dotnetApi.updateEvent(auth.token, id, payload)
-              : await this.dotnetApi.updateConfigured(
-                  auth.token,
-                  path,
-                  id,
-                  payload,
-                );
+              : entity === 'worklog'
+                ? await this.dotnetApi.updateWorklog(auth.token, id, payload)
+                : await this.dotnetApi.updateConfigured(
+                    auth.token,
+                    path!,
+                    id,
+                    payload,
+                  );
       vlog('entity', 'update', { entity, userId: auth.user.id, id });
       return { ok: true, value };
     } catch (error) {
@@ -132,14 +134,19 @@ export class EntityService {
     id: string,
   ): Promise<EntityServiceResult<unknown>> {
     const path = deletePath(entity);
-    if (!path) return notConfigured(entity, 'delete');
+    if (!path && entity !== 'worklog' && entity !== 'event')
+      return notConfigured(entity, 'delete');
     try {
       const value =
         entity === 'task'
           ? await this.dotnetApi.deleteTask(auth.token, id)
           : entity === 'note'
             ? await this.dotnetApi.deleteNote(auth.token, id)
-            : await this.dotnetApi.deleteConfigured(auth.token, path, id);
+            : entity === 'event'
+              ? await this.dotnetApi.deleteEvent(auth.token, id)
+              : entity === 'worklog'
+                ? await this.dotnetApi.deleteWorklog(auth.token, id)
+                : await this.dotnetApi.deleteConfigured(auth.token, path!, id);
       vlog('entity', 'delete', { entity, userId: auth.user.id, id });
       return { ok: true, value };
     } catch (error) {

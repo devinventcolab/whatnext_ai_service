@@ -110,7 +110,7 @@ export class SpeechFormatter {
     if (Array.isArray(value)) {
       return value.map((v) => this.formatValue(v, language)).join(', ');
     }
-    const text = String(value ?? '');
+    const text = String(value ?? '').trim();
     if (!text) return '';
     if (ISO_DATE.test(text)) {
       ISO_DATE.lastIndex = 0;
@@ -119,6 +119,26 @@ export class SpeechFormatter {
       );
     }
     ISO_DATE.lastIndex = 0;
+
+    const reminderMatch = text.match(/^(\d+)(min|hour)_before$/);
+    if (reminderMatch) {
+      const num = parseInt(reminderMatch[1], 10);
+      const unit = reminderMatch[2];
+      if (language === 'sr') {
+        if (unit === 'min') {
+          return `${num} ${getSrPlural(num, 'minut', 'minuta', 'minuta')} pre`;
+        } else {
+          return `${num} ${getSrPlural(num, 'sat', 'sata', 'sati')} pre`;
+        }
+      } else {
+        if (unit === 'min') {
+          return `${num} ${num === 1 ? 'minute' : 'minutes'} before`;
+        } else {
+          return `${num} ${num === 1 ? 'hour' : 'hours'} before`;
+        }
+      }
+    }
+
     return this.humanizeEnum(this.hideInternalIds(text, language), language);
   }
 

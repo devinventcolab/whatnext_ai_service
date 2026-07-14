@@ -10,7 +10,7 @@ import { QueryMode, QueryWorkerService } from './query-worker.service';
 import { ToolExecutorService } from './tool-executor.service';
 import { UpdateWorkerService } from './update-worker.service';
 import { SpeechFormatter } from './speech-formatter';
-import { Intent, INTENTS, WORKERS } from './workers';
+import { Intent, INTENTS, WORKERS, normalizeReminder } from './workers';
 
 type Fields = Record<string, unknown>;
 type Phase = 'idle' | 'collecting' | 'confirming';
@@ -367,7 +367,9 @@ export class ConversationManagerService {
     const confirm = languageManager.t('msg.confirmCreate', this.language, {
       noun: this.noun(this.intent),
     });
-    const res = this.rawReply(`${lead}\n${this.summary(input.userId, input.userName)}\n\n${confirm}`);
+    const res = this.rawReply(
+      `${lead}\n${this.summary(input.userId, input.userName)}\n\n${confirm}`,
+    );
     const isUpdateOrModify =
       nlu.command === 'modify' || nlu.command === 'provide';
     if (isUpdateOrModify && Object.keys(this.lastMergedFields).length > 0) {
@@ -388,11 +390,20 @@ export class ConversationManagerService {
           let value =
             f.name === 'estimated_time'
               ? this.speechFormatter.formatEstimatedTime(v, this.language)
-              : f.enum
+              : f.name === 'reminders'
                 ? this.speechFormatter.formatValue(v, this.language)
-                : formatValue(v);
-          if (f.name === 'assignee' && v !== undefined && v !== null && v !== '' && String(v) === input.userId) {
-            value = input.userName || languageManager.t('enum.me', this.language);
+                : f.enum
+                  ? this.speechFormatter.formatValue(v, this.language)
+                  : formatValue(v);
+          if (
+            f.name === 'assignee' &&
+            v !== undefined &&
+            v !== null &&
+            v !== '' &&
+            String(v) === input.userId
+          ) {
+            value =
+              input.userName || languageManager.t('enum.me', this.language);
           }
           return `${label}: ${value}`;
         })
@@ -576,12 +587,15 @@ export class ConversationManagerService {
           applied = true;
         }
       } else if (f.type === 'array') {
-        const valArr = Array.isArray(v)
+        let valArr = Array.isArray(v)
           ? v.map(String)
           : String(v)
               .split(',')
               .map((s) => s.trim())
               .filter(Boolean);
+        if (f.name === 'reminders') {
+          valArr = valArr.map(normalizeReminder);
+        }
         this.fields[f.name] = valArr;
         this.lastMergedFields[f.name] = valArr;
         applied = true;
@@ -673,9 +687,11 @@ export class ConversationManagerService {
         ? languageManager.t('msg.notSet', this.language)
         : f.name === 'estimated_time'
           ? this.speechFormatter.formatEstimatedTime(v, this.language)
-          : f.enum
+          : f.name === 'reminders'
             ? this.speechFormatter.formatValue(v, this.language)
-            : formatValue(v);
+            : f.enum
+              ? this.speechFormatter.formatValue(v, this.language)
+              : formatValue(v);
 
       if (f.name === 'assignee' && !isEmpty && String(v) === userId) {
         value = userName || languageManager.t('enum.me', this.language);

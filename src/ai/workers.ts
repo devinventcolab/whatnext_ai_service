@@ -234,3 +234,38 @@ function estimateTaskHours(
   const hours = (due - start) / (1000 * 60 * 60);
   return Math.max(0.1, Math.round(hours * 10) / 10);
 }
+
+export function normalizeReminder(val: string): string {
+  const clean = val.trim().toLowerCase();
+
+  // If already canonical (e.g. 10min_before or 1hour_before), return
+  if (/^\d+(?:min|hour)_before$/.test(clean)) {
+    return clean;
+  }
+
+  // Strip common prepositional words to simplify parsing
+  const stripped = clean
+    .replace(/\b(before|pre|za|u|at|o|about)\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // Parse minutes: "20mint", "20min", "20 min", "20 minuta", "20m"
+  const minMatch = stripped.match(
+    /^(\d+)\s*(?:mint|min|mins|minute|minutes|m|minut|minuta|minute)?$/,
+  );
+  if (minMatch) {
+    return `${minMatch[1]}min_before`;
+  }
+
+  // Parse hours: "1 hour", "1h", "1 sat", "2 sata"
+  const hourMatch = stripped.match(/^(\d+)\s*(?:hour|hours|h|sat|sata|sati)?$/);
+  if (hourMatch) {
+    return `${hourMatch[1]}hour_before`;
+  }
+
+  if (/^\d+$/.test(stripped)) {
+    return `${stripped}min_before`;
+  }
+
+  return val;
+}
