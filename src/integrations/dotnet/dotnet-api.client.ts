@@ -21,10 +21,10 @@ export class DotnetApiClient {
     return {
       id: String(
         payload.id ??
-          payload.userId ??
-          payload.sub ??
-          payload.nameid ??
-          payload[dotnetNameIdentifierClaim],
+        payload.userId ??
+        payload.sub ??
+        payload.nameid ??
+        payload[dotnetNameIdentifierClaim],
       ),
       email: payload.email ? String(payload.email) : undefined,
       name: payload.name
@@ -220,7 +220,7 @@ export class DotnetApiClient {
       throw new ApiError(
         response.status,
         extractErrorMessage(payload) ??
-          `Existing backend request failed (${response.status} ${response.statusText || 'Error'})`,
+        `Existing backend request failed (${response.status} ${response.statusText || 'Error'})`,
         details,
       );
     }
@@ -230,7 +230,7 @@ export class DotnetApiClient {
       throw new ApiError(
         502,
         extractErrorMessage(payload) ??
-          'Existing backend returned success=false',
+        'Existing backend returned success=false',
         details,
       );
     }
@@ -506,10 +506,15 @@ function toHashtagString(content: string, manual: unknown): string {
   return Array.from(new Set([...fromContent, ...fromManual])).join(',');
 }
 
+const TIMEZONE =
+  process.env.TZ ||
+  Intl.DateTimeFormat().resolvedOptions().timeZone ||
+  'Europe/Paris';
+
 function defaultToday(): string {
   const d = new Date();
   const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Europe/Paris',
+    timeZone: TIMEZONE,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -538,25 +543,27 @@ export function toCetIsoString(
     hasTimezone = /Z|[+-]\d{2}:?\d{2}$/i.test(s);
 
     if (!hasTimezone) {
-      const isoString = s.includes('T') ? s : `${s}T${defaultTime}`;
+      const normalized = s.replace(' ', 'T');
+      const isoString = normalized.includes('T') ? normalized : `${normalized}T${defaultTime}`;
       const match = isoString.match(
-        /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/,
+        /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/,
       );
       if (match) {
-        const [_, y, m, d, hh, mm, ss] = match;
+        const [_, y, m, d, hh, mm, ssOpt] = match;
+        const ss = ssOpt || '00';
         const utcDate = new Date(`${y}-${m}-${d}T${hh}:${mm}:${ss}Z`);
         const tempUtc = new Date(
           utcDate.toLocaleString('en-US', { timeZone: 'UTC' }),
         );
         const tempCet = new Date(
-          utcDate.toLocaleString('en-US', { timeZone: 'Europe/Paris' }),
+          utcDate.toLocaleString('en-US', { timeZone: TIMEZONE }),
         );
         const offsetMs = tempCet.getTime() - tempUtc.getTime();
         const cetInstant = new Date(utcDate.getTime() - offsetMs);
 
         const cetOffsetMs =
           new Date(
-            cetInstant.toLocaleString('en-US', { timeZone: 'Europe/Paris' }),
+            cetInstant.toLocaleString('en-US', { timeZone: TIMEZONE }),
           ).getTime() -
           new Date(
             cetInstant.toLocaleString('en-US', { timeZone: 'UTC' }),
@@ -578,7 +585,7 @@ export function toCetIsoString(
   }
 
   const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Europe/Paris',
+    timeZone: TIMEZONE,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -604,7 +611,7 @@ export function toCetIsoString(
 
   const tempUtc = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
   const tempCet = new Date(
-    date.toLocaleString('en-US', { timeZone: 'Europe/Paris' }),
+    date.toLocaleString('en-US', { timeZone: TIMEZONE }),
   );
   const offsetMs = tempCet.getTime() - tempUtc.getTime();
   const offsetMins = Math.round(offsetMs / 60000);

@@ -16,7 +16,7 @@ const CYRILLIC = /[\u0400-\u04FF]/;
 const SERBIAN_DIACRITICS = /[čćžšđ]/i;
 // Common Serbian command/keywords (Latin), used as a lightweight fallback.
 const SERBIAN_WORDS =
-  /\b(kreiraj|napravi|dodaj|obriši|obrisi|izmeni|ažuriraj|azuriraj|zadatak|beleška|beleska|događaj|dogadjaj|sastanak|podseti|podsetnik|sutra|danas|juče|juce|hvala|molim|želim|zelim|napiši|napisi|prikaži|prikazi|koliko|zdravo|ćao|cao|ciao|zatvori|izadji|ugasi|aplikaciju)\b/i;
+  /\b(kreiraj|kreirajte|napravi|napravite|dodaj|dodajte|obriši|obrišite|obrisi|obrisite|izmeni|izmenite|ažuriraj|ažurirajte|azuriraj|azurirajte|potvrdi|potvrdite|potvrđujem|potvrdujem|zadatak|beleška|beleska|događaj|dogadjaj|sastanak|podseti|podsetnik|sutra|danas|juče|juce|hvala|molim|želim|zelim|napiši|napisi|prikaži|prikazi|koliko|zdravo|ćao|cao|ciao|zatvori|zatvorite|izadji|izadjite|ugasi|aplikaciju)\b/i;
 
 /**
  * Centralized language service: detection, normalization, and translation.

@@ -180,6 +180,34 @@ describe('ConversationManagerService - Serbian Enum Handling and Translation', (
     expect(res.text).toContain('Naziv: Godišnji sastanak');
     expect(res.text).toContain('Učesnici: Petar, Milica');
     expect(res.text).toContain('Da li želite da kreiram ovaj unos');
+
+    // 3. Confirm in Serbian
+    jest.spyOn(service as any, 'classify').mockResolvedValue({
+      intent: 'event',
+      entity: 'event',
+      command: 'confirm',
+      queryMode: 'list',
+      query: {},
+      fields: {},
+      language: 'sr',
+    });
+
+    const mockEventResult = {
+      id: 'event-123',
+      eventName: 'Sastanak',
+      eventDate: '2026-06-30T10:00:00+02:00',
+    };
+    jest.spyOn((service as any).toolExecutor, 'execute').mockResolvedValue(mockEventResult);
+
+    res = await service.handle({
+      token: 'fake-token',
+      transcript: 'kreirajte i potvrdite',
+      userId: 'user-1',
+    });
+
+    expect(service.activeLanguage).toBe('sr');
+    expect(res.language).toBe('sr');
+    expect(res.text).toContain('Gotovo. Kreirano: događaj.');
   });
 
   it('handles invalid Serbian enum values and displays localized options in the error message', async () => {
