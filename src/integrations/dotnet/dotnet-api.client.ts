@@ -115,15 +115,20 @@ export class DotnetApiClient {
 
   async createWorklog(token: string, payload: unknown) {
     const dropdowns = await worklogDropdownsService.getDropdowns(token, this);
+    const form = toWorklogFormData(payload, dropdowns);
+    const formEntries =
+      typeof form.entries === 'function'
+        ? Object.fromEntries(Array.from(form.entries()))
+        : form;
     console.log(
       'payload----------------------------------------------',
-      toWorklogFormData(payload, dropdowns),
+      formEntries,
     );
     return this.request(
       token,
       'POST',
       env.DOTNET_WORKLOGS_PATH,
-      toWorklogFormData(payload, dropdowns),
+      form,
     );
   }
 
