@@ -11,6 +11,7 @@ import { ToolExecutorService } from './tool-executor.service';
 import { UpdateWorkerService } from './update-worker.service';
 import { SpeechFormatter } from './speech-formatter';
 import { Intent, INTENTS, WORKERS, normalizeReminder } from './workers';
+import { worklogDropdownsService } from '../integrations/dotnet/worklog-dropdowns.service';
 
 type Fields = Record<string, unknown>;
 type Phase = 'idle' | 'collecting' | 'confirming';
@@ -123,6 +124,20 @@ export class ConversationManagerService {
       this.reset();
     }
     this.lastActivityAt = Date.now();
+
+    // Dynamically update worklog dropdown enums from API
+    try {
+      const dropdowns = await worklogDropdownsService.getDropdowns(input.token);
+      const worklogFields = WORKERS.worklog.fields;
+      const actField = worklogFields.find((f) => f.name === 'Activities');
+      if (actField) actField.enum = dropdowns.activities.map((a) => a.name);
+      const phaseField = worklogFields.find((f) => f.name === 'processPhases');
+      if (phaseField) phaseField.enum = dropdowns.processPhases.map((p) => p.name);
+      const compField = worklogFields.find((f) => f.name === 'competences');
+      if (compField) compField.enum = dropdowns.competences.map((c) => c.name);
+    } catch {
+      // ignore failures, default enums will be retained
+    }
 
     // Serbian greetings: Zdravo / Ćao / Cao / Ciao should respond in Serbian but NOT switch the session language.
     if (isSerbianGreeting(text)) {
@@ -607,9 +622,14 @@ export class ConversationManagerService {
         if (!match) {
           for (const lang of languageManager.supportedLanguages) {
             const found = f.enum.find((e) => {
-              const key = `enum.${e.toLowerCase()}`;
-              const translated = languageManager.t(key, lang);
-              return translated.toLowerCase() === s;
+              const rawKey = e.toLowerCase();
+              const normKey = rawKey.replace(/\s+/g, '_');
+              const t1 = languageManager.t(`enum.${rawKey}`, lang);
+              const t2 = languageManager.t(`enum.${normKey}`, lang);
+              return (
+                (t1 && t1.toLowerCase() === s) ||
+                (t2 && t2.toLowerCase() === s)
+              );
             });
             if (found) {
               match = found;
@@ -620,10 +640,14 @@ export class ConversationManagerService {
         if (match) {
           let finalVal = match;
           if (this.language === 'sr') {
-            const key = `enum.${match.toLowerCase()}`;
-            const translated = languageManager.t(key, 'sr');
-            if (translated !== key) {
-              finalVal = translated;
+            const rawKey = match.toLowerCase();
+            const normKey = rawKey.replace(/\s+/g, '_');
+            const t1 = languageManager.t(`enum.${rawKey}`, 'sr');
+            const t2 = languageManager.t(`enum.${normKey}`, 'sr');
+            if (t1 !== `enum.${rawKey}`) {
+              finalVal = t1;
+            } else if (t2 !== `enum.${normKey}`) {
+              finalVal = t2;
             }
           }
           this.fields[f.name] = finalVal;

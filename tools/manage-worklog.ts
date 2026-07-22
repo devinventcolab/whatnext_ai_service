@@ -94,6 +94,9 @@ async function run() {
         Comment: args.comment,
         taskId: args['task-id'] || args.taskid || args.task,
         TaskName: args.task,
+        processPhases: args.phase || args.processphases,
+        Activities: args.activity || args.activities,
+        competences: args.competence || args.competences,
         RealizationTime: args.realization ? parseInt(args.realization, 10) : undefined,
       };
 
@@ -118,6 +121,9 @@ async function run() {
       if (args.comment) payload.Comment = args.comment;
       if (args['task-id'] || args.taskid) payload.taskId = args['task-id'] || args.taskid;
       if (args.task) payload.TaskName = args.task;
+      if (args.phase || args.processphases) payload.processPhases = args.phase || args.processphases;
+      if (args.activity || args.activities) payload.Activities = args.activity || args.activities;
+      if (args.competence || args.competences) payload.competences = args.competence || args.competences;
       if (args.realization) payload.RealizationTime = parseInt(args.realization, 10);
 
       console.log(`Updating worklog ID: ${id}`);

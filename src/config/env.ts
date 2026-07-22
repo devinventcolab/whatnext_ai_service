@@ -36,6 +36,9 @@ const envSchema = z.object({
   DOTNET_WORKLOGS_LIST_PATH: z.string().optional(),
   DOTNET_WORKLOGS_UPDATE_PATH: z.string().optional(),
   DOTNET_WORKLOGS_DELETE_PATH: z.string().optional(),
+  DOTNET_WORKLOG_DROPDOWNS_PATH: z
+    .string()
+    .default('/user/GetWorkLogDropdowns'),
   DOTNET_REMINDERS_LIST_PATH: z.string().optional(),
   DOTNET_REMINDERS_UPDATE_PATH: z.string().optional(),
   DOTNET_REMINDERS_DELETE_PATH: z.string().optional(),

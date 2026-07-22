@@ -113,6 +113,16 @@ const en: TranslationTable = {
   'enum.presentation': 'Presentation',
   'enum.interview': 'Interview',
   'enum.trip': 'Trip',
+  'enum.complete': 'complete',
+  'enum.not_ready': 'not ready',
+  'enum.ready': 'ready',
+  'enum.resume': 'resume',
+  'enum.exam': 'exam',
+  'enum.new': 'new',
+  'enum.result': 'result',
+  'enum.test': 'test',
+  'enum.finance': 'Finance',
+  'enum.hr': 'HR',
 
   // ---- HTTP / API errors ----
   'error.validation': 'Validation failed',
@@ -198,6 +208,12 @@ const en: TranslationTable = {
   'field.worklog.taskId.question': 'Which task ID does this relate to?',
   'field.worklog.Comment.label': 'Comment',
   'field.worklog.Comment.question': 'Any additional comments?',
+  'field.worklog.processPhases.label': 'Process Phase',
+  'field.worklog.processPhases.question': 'What is the process phase (ready, not ready, resume, complete)?',
+  'field.worklog.Activities.label': 'Activity',
+  'field.worklog.Activities.question': 'What is the activity (test, new, exam, result)?',
+  'field.worklog.competences.label': 'Competence',
+  'field.worklog.competences.question': 'What is the competence (Finance, HR, High, Low)?',
 };
 
 export default en;

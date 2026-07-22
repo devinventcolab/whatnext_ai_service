@@ -111,6 +111,16 @@ const sr: TranslationTable = {
   'enum.presentation': 'Prezentacija',
   'enum.interview': 'Intervju',
   'enum.trip': 'Putovanje',
+  'enum.complete': 'kompletirano',
+  'enum.not_ready': 'nije spremno',
+  'enum.ready': 'spremno',
+  'enum.resume': 'nastavi',
+  'enum.exam': 'ispit',
+  'enum.new': 'novo',
+  'enum.result': 'rezultat',
+  'enum.test': 'test',
+  'enum.finance': 'Finansije',
+  'enum.hr': 'HR',
 
   // ---- HTTP / API errors ----
   'error.validation': 'Validacija nije uspela',
@@ -197,6 +207,12 @@ const sr: TranslationTable = {
   'field.worklog.taskId.question': 'Na koji ID zadatka se odnosi?',
   'field.worklog.Comment.label': 'Komentar',
   'field.worklog.Comment.question': 'Imate li dodatne komentare?',
+  'field.worklog.processPhases.label': 'Faza procesa',
+  'field.worklog.processPhases.question': 'Koja je faza procesa (ready, not ready, resume, complete)?',
+  'field.worklog.Activities.label': 'Aktivnost',
+  'field.worklog.Activities.question': 'Koja je aktivnost (test, new, exam, result)?',
+  'field.worklog.competences.label': 'Kompetencija',
+  'field.worklog.competences.question': 'Koja je kompetencija (Finance, HR, High, Low)?',
 };
 
 export default sr;

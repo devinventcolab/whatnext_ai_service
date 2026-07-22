@@ -2,6 +2,7 @@ import { env } from '../../config/env';
 import { ApiError } from '../../shared/errors/api-error';
 import { AuthUser } from '../../auth/auth.types';
 import { vlog } from '../../shared/debug';
+import { worklogDropdownsService, WorklogDropdownsData } from './worklog-dropdowns.service';
 
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 const dotnetNameIdentifierClaim =
@@ -112,13 +113,17 @@ export class DotnetApiClient {
     );
   }
 
-  createWorklog(token: string, payload: unknown) {
-    console.log("payload----------------------------------------------", toWorklogFormData(payload))
+  async createWorklog(token: string, payload: unknown) {
+    const dropdowns = await worklogDropdownsService.getDropdowns(token, this);
+    console.log(
+      'payload----------------------------------------------',
+      toWorklogFormData(payload, dropdowns),
+    );
     return this.request(
       token,
       'POST',
       env.DOTNET_WORKLOGS_PATH,
-      toWorklogFormData(payload),
+      toWorklogFormData(payload, dropdowns),
     );
   }
 
@@ -133,6 +138,16 @@ export class DotnetApiClient {
 
   deleteWorklog(token: string, id: string) {
     return this.request(token, 'DELETE', env.DOTNET_WORKLOGS_PATH + '/' + id);
+  }
+
+  getWorklogDropdowns(token: string) {
+    return this.request<{
+      data?: {
+        processPhases?: Array<{ id: number; name: string }>;
+        activities?: Array<{ id: number; name: string }>;
+        competences?: Array<{ id: number; name: string }>;
+      };
+    }>(token, 'GET', env.DOTNET_WORKLOG_DROPDOWNS_PATH);
   }
 
   listConfigured(token: string, path: string) {
@@ -407,13 +422,65 @@ function toEventPayload(raw: unknown): Payload {
   return payload;
 }
 
-function toWorklogFormData(raw: unknown): FormData {
+function toWorklogFormData(
+  raw: unknown,
+  dropdowns?: WorklogDropdownsData,
+): FormData {
   const data = asPayload(raw);
   const form = new FormData();
-  //form.append('TaskDetailsID', str(data.TaskDetailsID, '1'));
-  form.append('ProcessPhaseID', str(data.ProcessPhaseID, '1'));
-  form.append('ActivityID', str(data.ActivityID, '1'));
-  form.append('CompetenceID', str(data.CompetenceID, '1'));
+  const processPhaseVal =
+    data.ProcessPhaseID ?? data.processPhases ?? data.processPhase;
+  const activityVal =
+    data.ActivityID ?? data.Activities ?? data.activities ?? data.activity;
+  const competenceVal =
+    data.CompetenceID ?? data.competences ?? data.competence;
+
+  const currentDropdowns =
+    dropdowns ?? {
+      processPhases: [
+        { id: 4, name: 'complete' },
+        { id: 2, name: 'not ready' },
+        { id: 1, name: 'ready' },
+        { id: 3, name: 'resume' },
+      ],
+      activities: [
+        { id: 3, name: 'exam' },
+        { id: 2, name: 'new' },
+        { id: 4, name: 'result' },
+        { id: 1, name: 'test' },
+      ],
+      competences: [
+        { id: 1, name: 'Finance' },
+        { id: 3, name: 'High' },
+        { id: 2, name: 'HR' },
+        { id: 4, name: 'Low' },
+      ],
+    };
+
+  form.append(
+    'ProcessPhaseID',
+    worklogDropdownsService.resolveId(
+      processPhaseVal,
+      currentDropdowns.processPhases,
+      '1',
+    ),
+  );
+  form.append(
+    'ActivityID',
+    worklogDropdownsService.resolveId(
+      activityVal,
+      currentDropdowns.activities,
+      '1',
+    ),
+  );
+  form.append(
+    'CompetenceID',
+    worklogDropdownsService.resolveId(
+      competenceVal,
+      currentDropdowns.competences,
+      '1',
+    ),
+  );
   form.append('What', str(data.What));
   form.append('How', str(data.How));
   form.append(
