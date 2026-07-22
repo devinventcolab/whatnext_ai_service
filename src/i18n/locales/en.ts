@@ -194,6 +194,8 @@ const en: TranslationTable = {
   'field.worklog.How.question': 'How did you do it?',
   'field.worklog.TaskName.label': 'Task',
   'field.worklog.TaskName.question': 'Which task does this relate to?',
+  'field.worklog.taskId.label': 'Task ID',
+  'field.worklog.taskId.question': 'Which task ID does this relate to?',
   'field.worklog.Comment.label': 'Comment',
   'field.worklog.Comment.question': 'Any additional comments?',
 };

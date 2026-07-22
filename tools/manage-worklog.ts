@@ -92,7 +92,8 @@ async function run() {
         StartTime: args.start || new Date().toISOString(),
         EndTime: args.end || new Date(Date.now() + 60 * 60 * 1000).toISOString(),
         Comment: args.comment,
-        TaskName: args.task || 'General',
+        taskId: args['task-id'] || args.taskid || args.task,
+        TaskName: args.task,
         RealizationTime: args.realization ? parseInt(args.realization, 10) : undefined,
       };
 
@@ -115,6 +116,7 @@ async function run() {
       if (args.start) payload.StartTime = args.start;
       if (args.end) payload.EndTime = args.end;
       if (args.comment) payload.Comment = args.comment;
+      if (args['task-id'] || args.taskid) payload.taskId = args['task-id'] || args.taskid;
       if (args.task) payload.TaskName = args.task;
       if (args.realization) payload.RealizationTime = parseInt(args.realization, 10);
 

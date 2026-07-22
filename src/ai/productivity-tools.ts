@@ -149,6 +149,8 @@ export const toolSchemas = {
       EndTime: z.string(),
       RealizationTime: z.number().int().optional(),
       Comment: z.string().optional(),
+      taskId: z.union([z.string(), z.number()]).optional(),
+      TaskID: z.union([z.string(), z.number()]).optional(),
       TaskName: z.string().optional(),
       TaskDetailsID: z.number().int().optional(),
       ProcessPhaseID: z.number().int().optional(),
@@ -165,6 +167,8 @@ export const toolSchemas = {
       EndTime: z.string().optional(),
       RealizationTime: z.number().int().optional(),
       Comment: z.string().optional(),
+      taskId: z.union([z.string(), z.number()]).optional(),
+      TaskID: z.union([z.string(), z.number()]).optional(),
       TaskName: z.string().optional(),
     })
     .merge(confirmed),

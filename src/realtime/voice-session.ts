@@ -38,6 +38,7 @@ export class VoiceSession {
   constructor(
     private readonly socket: Socket,
     private readonly auth: AuthContext,
+    private readonly taskId?: string,
   ) {}
 
   start() {
@@ -185,6 +186,7 @@ export class VoiceSession {
         transcript: text,
         userId: this.auth.user.id,
         userName: this.auth.user.name,
+        taskId: this.taskId,
       });
       vlog('session', 'assistant:text', {
         text: response.text,

@@ -91,6 +91,7 @@ export class ConversationManagerService {
     transcript: string;
     userId: string;
     userName?: string;
+    taskId?: string;
   }): Promise<AssistantResult> {
     this.lastMergedFields = {};
     this.currentCommand = 'none';
@@ -109,6 +110,7 @@ export class ConversationManagerService {
       transcript: string;
       userId: string;
       userName?: string;
+      taskId?: string;
     },
     text: string,
   ): Promise<AssistantResult> {
@@ -311,7 +313,7 @@ export class ConversationManagerService {
 
     // 4) Merge any field values mentioned this turn, then auto-fill defaults.
     const provided = this.mergeFields(nlu.fields);
-    this.applyDefaults(input.userId, input.userName);
+    this.applyDefaults(input.userId, input.userName, input.taskId);
     if (this.invalidField && this.intent) {
       const field = this.invalidField;
       this.invalidField = undefined;
@@ -641,8 +643,17 @@ export class ConversationManagerService {
   }
 
   /** Fills optional fields that have a default and are still empty. */
-  private applyDefaults(userId: string, userName?: string) {
+  private applyDefaults(userId: string, userName?: string, taskId?: string) {
     if (!this.intent) return;
+    if (this.intent === 'worklog' && taskId) {
+      const existing =
+        this.fields['taskId'] ??
+        this.fields['TaskID'] ??
+        this.fields['TaskName'];
+      if (existing === undefined || existing === null || existing === '') {
+        this.fields['taskId'] = taskId;
+      }
+    }
     const ctx = { now: new Date(), userId, userName, fields: this.fields };
     for (const f of WORKERS[this.intent].fields) {
       // Required fields must be explicitly collected from the user. Defaults are

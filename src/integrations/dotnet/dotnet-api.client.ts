@@ -425,7 +425,12 @@ function toWorklogFormData(raw: unknown): FormData {
   );
   form.append('RealizationTime', str(data.RealizationTime, '0'));
   form.append('Comment', str(data.Comment));
-  form.append('TaskName', str(data.TaskName, 'General'));
+  const taskIdVal = data.taskId ?? data.TaskID ?? data.task_id;
+  if (taskIdVal !== undefined && taskIdVal !== null && taskIdVal !== '') {
+    form.append('TaskID', String(taskIdVal));
+  } else if (data.TaskName) {
+    form.append('TaskName', String(data.TaskName));
+  }
   if (data.AttachmentPath)
     form.append('AttachmentPath', String(data.AttachmentPath));
   return form;

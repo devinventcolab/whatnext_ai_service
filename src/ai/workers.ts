@@ -190,7 +190,7 @@ export const WORKERS: Record<Intent, WorkerSpec> = {
       { name: 'StartTime', required: true },
       { name: 'EndTime', required: true },
       { name: 'How', required: false },
-      { name: 'TaskName', required: false },
+      { name: 'taskId', required: false },
       { name: 'Comment', required: false },
     ],
   },

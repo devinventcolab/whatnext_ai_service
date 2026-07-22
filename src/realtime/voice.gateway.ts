@@ -48,8 +48,18 @@ export function attachVoiceGateway(server: Server) {
           '',
       );
       socket.data.auth = await authService.authenticateToken(token);
+      const rawTaskId =
+        socket.handshake.auth?.taskId ??
+        socket.handshake.query?.taskId ??
+        socket.handshake.headers['x-task-id'];
+      const taskId =
+        rawTaskId !== undefined && rawTaskId !== null
+          ? String(rawTaskId).trim()
+          : undefined;
+      socket.data.taskId = taskId || undefined;
       vlog('gateway', 'handshake authenticated', {
         user: socket.data.auth.user.id,
+        taskId: socket.data.taskId,
       });
       next();
     } catch (error) {
@@ -91,7 +101,11 @@ export function attachVoiceGateway(server: Server) {
       }
       audioChunks = 0;
       textSubmitted = false;
-      session = new VoiceSession(socket, socket.data.auth);
+      session = new VoiceSession(
+        socket,
+        socket.data.auth,
+        socket.data.taskId,
+      );
       session.start();
     });
 
@@ -106,7 +120,11 @@ export function attachVoiceGateway(server: Server) {
       vlog('gateway', 'voice:text', { text: text.slice(0, 80) });
       if (!session) {
         vlog('gateway', 'voice:text before voice:start — starting session');
-        session = new VoiceSession(socket, socket.data.auth);
+        session = new VoiceSession(
+          socket,
+          socket.data.auth,
+          socket.data.taskId,
+        );
         session.start();
       }
       session.submitText(text);

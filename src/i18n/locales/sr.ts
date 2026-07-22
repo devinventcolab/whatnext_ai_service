@@ -193,6 +193,8 @@ const sr: TranslationTable = {
   'field.worklog.How.question': 'Kako ste to uradili?',
   'field.worklog.TaskName.label': 'Zadatak',
   'field.worklog.TaskName.question': 'Na koji zadatak se odnosi?',
+  'field.worklog.taskId.label': 'ID zadatka',
+  'field.worklog.taskId.question': 'Na koji ID zadatka se odnosi?',
   'field.worklog.Comment.label': 'Komentar',
   'field.worklog.Comment.question': 'Imate li dodatne komentare?',
 };
