@@ -409,7 +409,7 @@ function toEventPayload(raw: unknown): Payload {
 function toWorklogFormData(raw: unknown): FormData {
   const data = asPayload(raw);
   const form = new FormData();
-  form.append('TaskDetailsID', str(data.TaskDetailsID, '1'));
+  //form.append('TaskDetailsID', str(data.TaskDetailsID, '1'));
   form.append('ProcessPhaseID', str(data.ProcessPhaseID, '1'));
   form.append('ActivityID', str(data.ActivityID, '1'));
   form.append('CompetenceID', str(data.CompetenceID, '1'));
