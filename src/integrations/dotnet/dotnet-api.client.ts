@@ -424,7 +424,7 @@ function toWorklogFormData(raw: unknown): FormData {
     'EndTime',
     toCetIsoString(str(data.EndTime, new Date().toISOString())),
   );
-  form.append('RealizationTime', str(data.RealizationTime, '0'));
+  form.append('RealizationTime', str(data.RealizationTime, '10'));
   form.append('Comment', str(data.Comment));
   const taskIdVal = data.taskId ?? data.TaskID ?? data.task_id;
   if (taskIdVal !== undefined && taskIdVal !== null && taskIdVal !== '') {
