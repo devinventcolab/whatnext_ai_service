@@ -427,7 +427,7 @@ function toWorklogFormData(raw: unknown): FormData {
   form.append('Comment', str(data.Comment));
   const taskIdVal = data.taskId ?? data.TaskID ?? data.task_id;
   if (taskIdVal !== undefined && taskIdVal !== null && taskIdVal !== '') {
-    form.append('TaskID', String(taskIdVal));
+    form.append('TaskDetailsID', String(taskIdVal));
   } else if (data.TaskName) {
     form.append('TaskName', String(data.TaskName));
   }
