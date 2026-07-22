@@ -113,6 +113,7 @@ export class DotnetApiClient {
   }
 
   createWorklog(token: string, payload: unknown) {
+    console.log("payload----------------------------------------------", toWorklogFormData(payload))
     return this.request(
       token,
       'POST',
