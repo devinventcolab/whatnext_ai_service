@@ -531,3 +531,42 @@ describe('ConversationManagerService - Task Defaults and Assignee/StartDate Form
   });
 });
 
+describe('ConversationManagerService - Enum Unlisted Value Fallback to Default', () => {
+  let service: ConversationManagerService;
+
+  beforeEach(() => {
+    service = new ConversationManagerService();
+  });
+
+  it('falls back to default value when an unlisted enum value is provided for worklog fields', async () => {
+    jest.spyOn(service as any, 'classify').mockResolvedValue({
+      intent: 'worklog',
+      entity: 'worklog',
+      command: 'create',
+      queryMode: 'list',
+      query: {},
+      fields: {
+        What: 'Coding feature',
+        StartTime: '2026-07-23T10:00:00',
+        EndTime: '2026-07-23T11:00:00',
+        How: 'VS Code',
+        Activities: 'UnknownActivity',
+        processPhases: 'InvalidPhase',
+        competences: 'UnlistedCompetence',
+      },
+      language: 'en',
+    });
+
+    await service.handle({
+      token: 'fake-token',
+      transcript: 'log work with invalid enum values',
+      userId: 'user-1',
+    });
+
+    expect((service as any).fields.Activities).toBe('new');
+    expect((service as any).fields.processPhases).toBe('ready');
+    expect((service as any).fields.competences).toBe('High');
+  });
+});
+
+

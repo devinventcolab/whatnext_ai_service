@@ -654,7 +654,20 @@ export class ConversationManagerService {
           this.lastMergedFields[f.name] = finalVal;
           applied = true;
         } else {
-          this.invalidField = { name: f.name, allowed: f.enum };
+          if (f.default) {
+            const ctx = {
+              now: new Date(),
+              userId: '',
+              userName: '',
+              fields: this.fields,
+            };
+            const defaultVal = f.default(ctx);
+            this.fields[f.name] = defaultVal;
+            this.lastMergedFields[f.name] = defaultVal;
+            applied = true;
+          } else {
+            this.invalidField = { name: f.name, allowed: f.enum };
+          }
         }
       } else {
         const valStr = String(v);
