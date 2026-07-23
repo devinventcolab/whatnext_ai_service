@@ -208,6 +208,8 @@ const en: TranslationTable = {
   'field.worklog.taskId.question': 'Which task ID does this relate to?',
   'field.worklog.Comment.label': 'Comment',
   'field.worklog.Comment.question': 'Any additional comments?',
+  'field.worklog.RealizationTime.label': 'Realization time',
+  'field.worklog.RealizationTime.question': 'What is the realization time in minutes?',
   'field.worklog.processPhases.label': 'Process Phase',
   'field.worklog.processPhases.question': 'What is the process phase (ready, not ready, resume, complete)?',
   'field.worklog.Activities.label': 'Activity',

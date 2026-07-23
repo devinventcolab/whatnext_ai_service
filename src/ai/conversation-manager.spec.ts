@@ -567,6 +567,33 @@ describe('ConversationManagerService - Enum Unlisted Value Fallback to Default',
     expect((service as any).fields.processPhases).toBe('ready');
     expect((service as any).fields.competences).toBe('High');
   });
+
+  it('formats RealizationTime using Realization time label and duration text', async () => {
+    jest.spyOn(service as any, 'classify').mockResolvedValue({
+      intent: 'worklog',
+      entity: 'worklog',
+      command: 'create',
+      queryMode: 'list',
+      query: {},
+      fields: {
+        What: 'WhatNext Resolution',
+        StartTime: '2026-07-23T00:00:00',
+        EndTime: '2026-07-25T00:00:00',
+        How: 'we done the project with help of manager',
+        RealizationTime: 30,
+      },
+      language: 'en',
+    });
+
+    const res = await service.handle({
+      token: 'fake-token',
+      transcript: 'create work log for me',
+      userId: 'user-1',
+    });
+
+    expect(res.text).toContain('Realization time: 30 minutes');
+    expect(res.text).not.toContain('field.worklog.RealizationTime.label');
+  });
 });
 
 

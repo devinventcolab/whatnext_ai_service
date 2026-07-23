@@ -207,6 +207,8 @@ const sr: TranslationTable = {
   'field.worklog.taskId.question': 'Na koji ID zadatka se odnosi?',
   'field.worklog.Comment.label': 'Komentar',
   'field.worklog.Comment.question': 'Imate li dodatne komentare?',
+  'field.worklog.RealizationTime.label': 'Vreme realizacije',
+  'field.worklog.RealizationTime.question': 'Koliko je vreme realizacije u minutima?',
   'field.worklog.processPhases.label': 'Faza procesa',
   'field.worklog.processPhases.question': 'Koja je faza procesa (ready, not ready, resume, complete)?',
   'field.worklog.Activities.label': 'Aktivnost',
